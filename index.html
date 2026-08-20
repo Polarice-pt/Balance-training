@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AR Postural Control Training for Thai Older Adults</title>
+    <!-- MediaPipe Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.min.js" crossorigin="anonymous"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; color: #fff; }
+
+        /* Main Canvas & Video Containers */
+        #app-container { position: relative; width: 100vw; height: 100vh; background: #000; }
+        video { display: none; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); object-fit: cover; }
+        #ui-canvas { transform: none; pointer-events: none; }
+
+        /* UI Screens & Overlays */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); z-index: 10; padding: 20px; text-align: center; }
+        .hidden { display: none !important; }
+
+        h1 { font-size: 2.2rem; margin-bottom: 20px; color: #4DEEEA; text-shadow: 0 0 10px rgba(77,238,234,0.5); }
+        h2 { font-size: 1.8rem; margin-bottom: 15px; color: #FFE600; }
+        p { font-size: 1.2rem; margin-bottom: 25px; max-width: 600px; color: #ddd; }
+
+        /* Buttons */
+        .btn-container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 320px; }
+        .btn { padding: 18px 25px; font-size: 1.3rem; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; background: #2563EB; color: #fff; box-shadow: 0 4px 15px rgba(37,99,235,0.4); transition: transform 0.1s, background 0.2s; }
+        .btn:active { transform: scale(0.96); }
+        .btn-easy { background: #10B981; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
+        .btn-normal { background: #F59E0B; box-shadow: 0 4px 15px rgba(245,158,11,0.4); }
+        .btn-hard { background: #EF4444; box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
+
+        /* Top Nav Icons */
+        .nav-btn { position: absolute; top: 15px; z-index: 20; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid #fff; color: #fff; font-size: 1.5rem; display: flex; justify-content: center; align-items: center; cursor: pointer; backdrop-filter: blur(5px); }
+        #btn-back { left: 15px; }
+        #btn-pause { right: 15px; }
+
+        /* HUD Overlays */
+        #hud { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 30px; background: rgba(0,0,0,0.6); padding: 10px 25px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); font-size: 1.4rem; font-weight: bold; }
+        .hud-item { display: flex; align-items: center; gap: 8px; }
+        .hud-val { color: #FFE600; }
+
+        /* Screen Flash Feedback Overlays */
+        #feedback-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; transition: background 0.1s ease-out; }
+        .flash-success { background: rgba(16, 185, 129, 0.4) !important; border: 15px solid #10B981; }
+        .flash-error { background: rgba(239, 68, 68, 0.4) !important; border: 15px solid #EF4444; }
+
+        /* Orientation Alert */
+        #orientation-warning { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220,38,38,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; }
+
+        /* Countdown Overlay */
+        #countdown-overlay { font-size: 8rem; font-weight: 900; color: #FFE600; text-shadow: 0 0 20px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <video id="webcam" playsinline></video>
+    <canvas id="game-canvas"></canvas>
+    <canvas id="ui-canvas"></canvas>
+    <div id="feedback-overlay"></div>
+
+    <!-- Top Action Buttons -->
+    <button id="btn-back" class="nav-btn hidden">←</button>
+    <button id="btn-pause" class="nav-btn hidden">❚❚</button>
+
+    <!-- In-Game HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-item">คะแนน: <span id="hud-score" class="hud-val">0</span></div>
+        <div class="hud-item">ข้อผิดพลาด: <span id="hud-errors" class="hud-val" style="color: #EF4444;">0</span></div>
+        <div class="hud-item">เวลา: <span id="hud-timer" class="hud-val">05:00</span></div>
+    </div>
+
+    <!-- Screen 1: Game Selection -->
+    <div id="screen-game-select" class="screen">
+        <h1>ระบบฝึกการทรงตัวด้วย AR</h1>
+        <p>กรุณาเลือกรูปแบบการฝึกปฏิบัติ</p>
+        <div class="btn-container">
+            <button class="btn" onclick="selectGame('steady')">1. เลียนแบบท่าทาง<br><small style="font-size:0.8rem; font-weight:normal;">(Steady-State Balance)</small></button>
+            <button class="btn" onclick="selectGame('proactive')">2. เอื้อมมือแตะจุด<br><small style="font-size:0.8rem; font-weight:normal;">(Proactive Balance)</small></button>
+            <button class="btn" onclick="selectGame('reactive')">3. เก็บของจากฟ้า<br><small style="font-size:0.8rem; font-weight:normal;">(Reactive Balance)</small></button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Stage Selection -->
+    <div id="screen-stage-select" class="screen hidden">
+        <h2 id="stage-title">เลือกระดับความยาก</h2>
+        <div class="btn-container">
+            <button class="btn btn-easy" onclick="selectStage('easy')">ง่าย</button>
+            <button class="btn btn-normal" onclick="selectStage('normal')">ปานกลาง</button>
+            <button class="btn btn-hard" onclick="selectStage('hard')">ยาก</button>
+        </div>
+    </div>
+
+    <!-- Screen 3: Start / Countdown -->
+    <div id="screen-start" class="screen hidden">
+        <h2 id="start-game-name">พร้อมที่จะเริ่มเกม</h2>
+        <p id="start-instructions">จัดวางร่างกายให้อยู่ในตำแหน่งที่มองเห็นชัดเจน</p>
+        <button id="btn-start-countdown" class="btn btn-easy" style="width: 200px;" onclick="triggerCountdown()">เริ่ม</button>
+        <div id="countdown-overlay" class="hidden">3</div>
+    </div>
+
+    <!-- Screen 4: Pause Menu -->
+    <div id="screen-pause" class="screen hidden">
+        <h2>หยุดเกมชั่วคราว</h2>
+        <div class="btn-container" style="margin-top: 20px;">
+            <button class="btn" onclick="resumeGame()">เล่นต่อ</button>
+            <button class="btn btn-hard" onclick="exitToMain()">ออกจากเกม</button>
+        </div>
+    </div>
+
+    <!-- Screen 5: Results Screen -->
+    <div id="screen-result" class="screen hidden">
+        <h2>สรุปผลการฝึก</h2>
+        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin: 20px 0; width: 100%; max-width: 320px;">
+            <p style="margin-bottom: 10px;">คะแนนรวม: <strong id="res-score" style="color:#FFE600; font-size: 1.8rem;">0</strong></p>
+            <p style="margin-bottom: 0;">จำนวนข้อผิดพลาด: <strong id="res-errors" style="color:#EF4444; font-size: 1.8rem;">0</strong></p>
+        </div>
+        <button class="btn" onclick="exitToMain()">กลับหน้าหลัก</button>
+    </div>
+
+    <!-- Orientation Alert -->
+    <div id="orientation-warning" class="hidden">
+        <h2>กรุณาเปลี่ยนทิศทางการวางสมาร์ทโฟน</h2>
+        <p id="orientation-msg">โปรดหมุนอุปกรณ์ให้เป็นแนวที่เหมาะสมกับเกมนี้</p>
+    </div>
+</div>
+
+<script>
+    // --- APP STATE & CONFIGURATION ---
+    const STATE = {
+        currentGame: null,  // 'steady', 'proactive', 'reactive'
+        currentStage: null, // 'easy', 'normal', 'hard'
+        isPaused: false,
+        isGameActive: false,
+        score: 0,
+        errors: 0,
+        timeRemaining: 300, // 5 minutes in seconds
+        timerInterval: null,
+        poseLandmarks: null,
+        // Game-Specific Variables
+        steady: { targetPoseIdx: 0, holdTimer: 0, targetHoldTime: 3, lastCheckTime: 0 },
+        proactive: { targetDot: null, initialAnkles: null, spawnTime: 0, lifeSpan: 5, reachDistFactor: 1.15 },
+        reactive: { items: [], speedFactor: 1.0, spawnTimer: 0 }
+    };
+
+    const GAME_CONFIG = {
+        steady: { easy: { hold: 1 }, normal: { hold: 3 }, hard: { hold: 5 } },
+        proactive: { easy: { reach: 1.15, span: 5 }, normal: { reach: 1.25, span: 5 }, hard: { reach: 1.25, span: 3 } },
+        reactive: { easy: { speed: 0.75 }, normal: { speed: 1.0 }, hard: { speed: 1.5 } }
+    };
+
+    // Preset Postures for Game 1 (Simplified Angular Definitions)
+    const POSES = [
+        { name: "T-Pose", angles: [{ j1: 11, j2: 13, j3: 15, target: 180 }, { j1: 12, j2: 14, j3: 16, target: 180 }] },
+        { name: "Hands Up", angles: [{ j1: 23, j2: 11, j3: 13, target: 180 }, { j1: 24, j2: 12, j3: 14, target: 180 }] },
+        { name: "Right Tree", angles: [{ j1: 24, j2: 26, j3: 28, target: 120 }] }
+    ];
+
+    // --- DOM ELEMENTS ---
+    const videoElement = document.getElementById('webcam');
+    const gameCanvas = document.getElementById('game-canvas');
+    const gCtx = gameCanvas.getContext('2d');
+    const uiCanvas = document.getElementById('ui-canvas');
+    const uiCtx = uiCanvas.getContext('2d');
+
+    const screenGameSelect = document.getElementById('screen-game-select');
+    const screenStageSelect = document.getElementById('screen-stage-select');
+    const screenStart = document.getElementById('screen-start');
+    const screenPause = document.getElementById('screen-pause');
+    const screenResult = document.getElementById('screen-result');
+    const orientationWarning = document.getElementById('orientation-warning');
+    const btnBack = document.getElementById('btn-back');
+    const btnPause = document.getElementById('btn-pause');
+    const hud = document.getElementById('hud');
+    const feedbackOverlay = document.getElementById('feedback-overlay');
+
+    // --- INITIALIZATION & MEDIAPIPE ---
+    function resizeCanvas() {
+        gameCanvas.width = uiCanvas.width = window.innerWidth;
+        gameCanvas.height = uiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', () => { resizeCanvas(); checkOrientation(); });
+    resizeCanvas();
+
+    const pose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`
+    });
+    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+    pose.onResults(onPoseResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => { await pose.send({ image: videoElement }); },
+        width: 1280, height: 720
+    });
+    camera.start();
+
+    // --- NAVIGATION & FLOW CONTROL ---
+    function selectGame(game) {
+        STATE.currentGame = game;
+        screenGameSelect.classList.add('hidden');
+        screenStageSelect.classList.remove('hidden');
+        btnBack.classList.remove('hidden');
+        checkOrientation();
+    }
+
+    function selectStage(stage) {
+        STATE.currentStage = stage;
+        screenStageSelect.classList.add('hidden');
+        screenStart.classList.remove('hidden');
+        const titles = { steady: 'เลียนแบบท่าทาง', proactive: 'เอื้อมมือแตะจุด', reactive: 'เก็บของจากฟ้า' };
+        document.getElementById('start-game-name').innerText = titles[STATE.currentGame];
+    }
+
+    btnBack.onclick = () => {
+        if (!screenStart.classList.contains('hidden')) {
+            screenStart.classList.add('hidden');
+            screenStageSelect.classList.remove('hidden');
+        } else if (!screenStageSelect.classList.contains('hidden')) {
+            screenStageSelect.classList.add('hidden');
+            screenGameSelect.classList.remove('hidden');
+            btnBack.classList.add('hidden');
+        }
+    };
+
+    function triggerCountdown() {
+        document.getElementById('btn-start-countdown').classList.add('hidden');
+        const cd = document.getElementById('countdown-overlay');
+        cd.classList.remove('hidden');
+        let val = 3;
+        cd.innerText = val;
+        
+        const timer = setInterval(() => {
+            val--;
+            if (val > 0) {
+                cd.innerText = val;
+            } else if (val === 0) {
+                cd.innerText = "เริ่ม!";
+            } else {
+                clearInterval(timer);
+                cd.classList.add('hidden');
+                document.getElementById('btn-start-countdown').classList.remove('hidden');
+                screenStart.classList.add('hidden');
+                startGame();
+            }
+        }, 1000);
+    }
+
+    function startGame() {
+        STATE.isGameActive = true;
+        STATE.isPaused = false;
+        STATE.score = 0;
+        STATE.errors = 0;
+        STATE.timeRemaining = 300;
+        STATE.steady.holdTimer = 0;
+        STATE.steady.targetPoseIdx = 0;
+        STATE.proactive.targetDot = null;
+        STATE.proactive.initialAnkles = null;
+        STATE.reactive.items = [];
+
+        // Apply Stage Configurations
+        if (STATE.currentGame === 'steady') {
+            STATE.steady.targetHoldTime = GAME_CONFIG.steady[STATE.currentStage].hold;
+        } else if (STATE.currentGame === 'proactive') {
+            STATE.proactive.reachDistFactor = GAME_CONFIG.proactive[STATE.currentStage].reach;
+            STATE.proactive.lifeSpan = GAME_CONFIG.proactive[STATE.currentStage].span;
+        } else if (STATE.currentGame === 'reactive') {
+            STATE.reactive.speedFactor = GAME_CONFIG.reactive[STATE.currentStage].speed;
+        }
+
+        updateHUD();
+        hud.classList.remove('hidden');
+        btnPause.classList.remove('hidden');
+        btnBack.classList.add('hidden');
+
+        STATE.timerInterval = setInterval(() => {
+            if (!STATE.isPaused) {
+                STATE.timeRemaining--;
+                updateHUD();
+                if (STATE.timeRemaining <= 0) endGame();
+            }
+        }, 1000);
+    }
+
+    btnPause.onclick = () => {
+        if (!STATE.isGameActive) return;
+        STATE.isPaused = true;
+        screenPause.classList.remove('hidden');
+    };
+
+    function resumeGame() {
+        STATE.isPaused = false;
+        screenPause.classList.add('hidden');
+    }
+
+    function exitToMain() {
+        clearInterval(STATE.timerInterval);
+        STATE.isGameActive = false;
+        STATE.isPaused = false;
+        screenPause.classList.add('hidden');
+        screenResult.classList.add('hidden');
+        hud.classList.add('hidden');
+        btnPause.classList.add('hidden');
+        btnBack.classList.add('hidden');
+        screenGameSelect.classList.remove('hidden');
+    }
+
+    function endGame() {
+        clearInterval(STATE.timerInterval);
+        STATE.isGameActive = false;
+        document.getElementById('res-score').innerText = STATE.score;
+        document.getElementById('res-errors').innerText = STATE.errors;
+        hud.classList.add('hidden');
+        btnPause.classList.add('hidden');
+        screenResult.classList.remove('hidden');
+    }
+
+    function updateHUD() {
+        document.getElementById('hud-score').innerText = STATE.score;
+        document.getElementById('hud-errors').innerText = STATE.errors;
+        const m = Math.floor(STATE.timeRemaining / 60).toString().padStart(2, '0');
+        const s = (STATE.timeRemaining % 60).toString().padStart(2, '0');
+        document.getElementById('hud-timer').innerText = `${m}:${s}`;
+    }
+
+    function triggerFeedback(type) {
+        feedbackOverlay.className = type === 'success' ? 'flash-success' : 'flash-error';
+        setTimeout(() => { feedbackOverlay.className = ''; }, 400);
+    }
+
+    function checkOrientation() {
+        if (!STATE.currentGame) return;
+        const isLandscape = window.innerWidth > window.innerHeight;
+        const reqLandscape = (STATE.currentGame === 'proactive');
+        if ((reqLandscape && !isLandscape) || (!reqLandscape && isLandscape)) {
+            orientationWarning.classList.remove('hidden');
+            document.getElementById('orientation-msg').innerText = reqLandscape ?
+                "โปรดวางสมาร์ทโฟนในแนวนอน (Landscape)" : "โปรดวางสมาร์ทโฟนในแนวตั้ง (Portrait)";
+        } else {
+            orientationWarning.classList.add('hidden');
+        }
+    }
+
+    // --- BIOMECHANICAL MATH HELPERS ---
+    function calculateAngle(p1, p2, p3) {
+        const radians = Math.atan2(p3.y - p2.y, p3.x - p2.x) - Math.atan2(p1.y - p2.y, p1.x - p2.x);
+        let angle = Math.abs((radians * 180.0) / Math.PI);
+        if (angle > 180.0) angle = 360 - angle;
+        return angle;
+    }
+
+    function getDistance(p1, p2) {
+        return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    }
+
+    // --- MEDIAPIPE FRAME PROCESSING & GAME LOOP ---
+    function onPoseResults(results) {
+        // Render Camera Frame Mirroring
+        gCtx.save();
+        gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        gCtx.scale(-1, 1);
+        gCtx.drawImage(results.image, -gameCanvas.width, 0, gameCanvas.width, gameCanvas.height);
+        gCtx.restore();
+
+        uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+
+        if (!results.poseLandmarks) return;
+        STATE.poseLandmarks = results.poseLandmarks;
+
+        if (STATE.isGameActive && !STATE.isPaused) {
+            if (STATE.currentGame === 'steady') runSteadyStateGame(results.poseLandmarks);
+            else if (STATE.currentGame === 'proactive') runProactiveGame(results.poseLandmarks);
+            else if (STATE.currentGame === 'reactive') runReactiveGame(results.poseLandmarks);
+        }
+    }
+
+    // --- GAME 1: STEADY-STATE BALANCE ---
+    function runSteadyStateGame(lm) {
+        const currentPose = POSES[STATE.steady.targetPoseIdx];
+        let anglesMatched = true;
+
+        // Check posture angles with +/- 15 degree tolerance
+        for (let rule of currentPose.angles) {
+            const actual = calculateAngle(lm[rule.j1], lm[rule.j2], lm[rule.j3]);
+            if (Math.abs(actual - rule.target) > 15) {
+                anglesMatched = false;
+                break;
+            }
+        }
+
+        // Render target silhouette prompt on overlay
+        uiCtx.fillStyle = anglesMatched ? "rgba(16, 185, 129, 0.8)" : "rgba(255, 255, 255, 0.8)";
+        uiCtx.font = "bold 28px sans-serif";
+        uiCtx.textAlign = "center";
+        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, uiCanvas.width / 2, 100);
+
+        if (anglesMatched) {
+            STATE.steady.holdTimer += 0.033; // Approx time step (~30fps)
+            const progress = Math.min(STATE.steady.holdTimer / STATE.steady.targetHoldTime, 1.0);
+            
+            // Draw Progress Bar
+            uiCtx.fillStyle = "#10B981";
+            uiCtx.fillRect(uiCanvas.width / 2 - 150, 120, 300 * progress, 15);
+
+            if (STATE.steady.holdTimer >= STATE.steady.targetHoldTime) {
+                STATE.score += 1;
+                triggerFeedback('success');
+                STATE.steady.holdTimer = 0;
+                STATE.steady.targetPoseIdx = (STATE.steady.targetPoseIdx + 1) % POSES.length;
+                updateHUD();
+            }
+        } else {
+            STATE.steady.holdTimer = Math.max(0, STATE.steady.holdTimer - 0.05);
+        }
+    }
+
+    // --- GAME 2: PROACTIVE BALANCE ---
+    function runProactiveGame(lm) {
+        const lAnkle = lm[27], rAnkle = lm[28];
+        const lShoulder = lm[11], rShoulder = lm[12];
+        const lWrist = lm[15], rWrist = lm[16];
+
+        // Foot movement detection relative to initial placement
+        if (!STATE.proactive.initialAnkles) {
+            STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } };
+        } else {
+            const baseDist = getDistance(STATE.proactive.initialAnkles.l, STATE.proactive.initialAnkles.r);
+            const currentMoveL = getDistance(lAnkle, STATE.proactive.initialAnkles.l);
+            const currentMoveR = getDistance(rAnkle, STATE.proactive.initialAnkles.r);
+
+            if ((currentMoveL > baseDist * 0.25 || currentMoveR > baseDist * 0.25) && baseDist > 0.05) {
+                STATE.errors += 1;
+                triggerFeedback('error');
+                STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } }; // Reset baseline
+                updateHUD();
+            }
+        }
+
+        // Spawn Target Dot based on Arm Reach distance
+        if (!STATE.proactive.targetDot) {
+            const armLen = getDistance(lShoulder, lWrist);
+            const reachRadius = armLen * STATE.proactive.reachDistFactor;
+            
+            // Randomize reach direction around shoulders
+            const angle = (Math.random() * Math.PI) - (Math.PI / 2); // Ahead/Side arc
+            const targetX = lShoulder.x + Math.cos(angle) * reachRadius;
+            const targetY = lShoulder.y + Math.sin(angle) * reachRadius;
+
+            STATE.proactive.targetDot = { x: targetX, y: targetY, createdAt: Date.now() };
+        }
+
+        const dot = STATE.proactive.targetDot;
+        const screenX = (1 - dot.x) * uiCanvas.width; // Mirrored Screen Space
+        const screenY = dot.y * uiCanvas.height;
+
+        // Render Target Dot
+        uiCtx.beginPath();
+        uiCtx.arc(screenX, screenY, 35, 0, 2 * Math.PI);
+        uiCtx.fillStyle = "#FFE600";
+        uiCtx.fill();
+        uiCtx.lineWidth = 4;
+        uiCtx.strokeStyle = "#FFF";
+        uiCtx.stroke();
+
+        // Check Wrist Touch Intersections
+        const wrist1 = { x: (1 - lWrist.x) * uiCanvas.width, y: lWrist.y * uiCanvas.height };
+        const wrist2 = { x: (1 - rWrist.x) * uiCanvas.width, y: rWrist.y * uiCanvas.height };
+
+        if (Math.hypot(wrist1.x - screenX, wrist1.y - screenY) < 50 || Math.hypot(wrist2.x - screenX, wrist2.y - screenY) < 50) {
+            STATE.score += 1;
+            triggerFeedback('success');
+            STATE.proactive.targetDot = null;
+            updateHUD();
+        } else if ((Date.now() - dot.createdAt) / 1000 > STATE.proactive.lifeSpan) {
+            STATE.errors += 1;
+            triggerFeedback('error');
+            STATE.proactive.targetDot = null;
+            updateHUD();
+        }
+    }
+
+    // --- GAME 3: REACTIVE BALANCE ---
+    function runReactiveGame(lm) {
+        const lShoulder = lm[11], rShoulder = lm[12];
+        const shoulderCenter = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
+
+        // Position Basket above user's head center
+        const basketX = (1 - shoulderCenter.x) * uiCanvas.width;
+        const basketY = (shoulderCenter.y * uiCanvas.height) - 120;
+        const basketWidth = 140;
+
+        // Render Basket
+        uiCtx.fillStyle = "#F59E0B";
+        uiCtx.beginPath();
+        uiCtx.roundRect(basketX - basketWidth/2, basketY, basketWidth, 30, [0, 0, 15, 15]);
+        uiCtx.fill();
+        uiCtx.strokeStyle = "#FFF";
+        uiCtx.lineWidth = 3;
+        uiCtx.stroke();
+
+        // Spawn Falling Objects
+        STATE.reactive.spawnTimer += 0.033;
+        if (STATE.reactive.spawnTimer > 2.0) {
+            STATE.reactive.items.push({
+                x: Math.random() * (uiCanvas.width - 60) + 30,
+                y: -20,
+                speed: (3 + Math.random() * 3) * STATE.reactive.speedFactor
+            });
+            STATE.reactive.spawnTimer = 0;
+        }
+
+        // Update and Render Falling Items
+        for (let i = STATE.reactive.items.length - 1; i >= 0; i--) {
+            let item = STATE.reactive.items[i];
+            item.y += item.speed;
+
+            uiCtx.beginPath();
+            uiCtx.arc(item.x, item.y, 18, 0, 2 * Math.PI);
+            uiCtx.fillStyle = "#4DEEEA";
+            uiCtx.fill();
+
+            // Collision Detection with Basket
+            if (item.y >= basketY && item.y <= basketY + 30 &&
+                item.x >= (basketX - basketWidth/2) && item.x <= (basketX + basketWidth/2)) {
+                STATE.score += 1;
+                triggerFeedback('success');
+                STATE.reactive.items.splice(i, 1);
+                updateHUD();
+            } else if (item.y > uiCanvas.height) {
+                STATE.errors += 1;
+                triggerFeedback('error');
+                STATE.reactive.items.splice(i, 1);
+                updateHUD();
+            }
+        }
+    }
+</script>
+</body>
+</html>
