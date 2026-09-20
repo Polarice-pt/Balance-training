@@ -3,56 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Postural Control Training for Thai Older Adults</title>
+    <title>ระบบฝึกการทรงตัวด้วย AR สำหรับผู้สูงอายุ</title>
     <!-- MediaPipe Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.min.js" crossorigin="anonymous"></script>
+    
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; color: #fff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Thonburi, Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #111827; color: #fff; }
 
-        /* Main Canvas & Video Containers */
-        #app-container { position: relative; width: 100vw; height: 100vh; background: #000; }
+        /* Canvas & Video Styling */
+        #app-container { position: relative; width: 100vw; height: 100vh; background: #000; overflow: hidden; }
         video { display: none; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); object-fit: cover; }
-        #ui-canvas { transform: none; pointer-events: none; }
+        
+        /* Mirror both canvas layers uniformly */
+        canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            transform: scaleX(-1); 
+            object-fit: cover; 
+        }
 
-        /* UI Screens & Overlays */
-        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); z-index: 10; padding: 20px; text-align: center; }
+        /* Screen Overlays */
+        .screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: rgba(17, 24, 39, 0.92); 
+            z-index: 10; 
+            padding: 24px; 
+            text-align: center; 
+            backdrop-filter: blur(8px);
+        }
         .hidden { display: none !important; }
 
-        h1 { font-size: 2.2rem; margin-bottom: 20px; color: #4DEEEA; text-shadow: 0 0 10px rgba(77,238,234,0.5); }
-        h2 { font-size: 1.8rem; margin-bottom: 15px; color: #FFE600; }
-        p { font-size: 1.2rem; margin-bottom: 25px; max-width: 600px; color: #ddd; }
+        h1 { font-size: 2rem; margin-bottom: 12px; color: #38BDF8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.4); font-weight: 800; }
+        h2 { font-size: 1.6rem; margin-bottom: 16px; color: #FBBF24; font-weight: 700; }
+        p { font-size: 1.15rem; margin-bottom: 24px; max-width: 500px; color: #E5E7EB; line-height: 1.5; }
 
-        /* Buttons */
-        .btn-container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 320px; }
-        .btn { padding: 18px 25px; font-size: 1.3rem; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; background: #2563EB; color: #fff; box-shadow: 0 4px 15px rgba(37,99,235,0.4); transition: transform 0.1s, background 0.2s; }
+        /* Buttons Structure */
+        .btn-container { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 320px; }
+        .btn { 
+            padding: 18px 20px; 
+            font-size: 1.25rem; 
+            font-weight: 700; 
+            border: none; 
+            border-radius: 16px; 
+            cursor: pointer; 
+            background: #2563EB; 
+            color: #fff; 
+            box-shadow: 0 4px 14px rgba(37,99,235,0.4); 
+            transition: all 0.15s ease-in-out; 
+            touch-action: manipulation;
+        }
         .btn:active { transform: scale(0.96); }
-        .btn-easy { background: #10B981; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
-        .btn-normal { background: #F59E0B; box-shadow: 0 4px 15px rgba(245,158,11,0.4); }
-        .btn-hard { background: #EF4444; box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
+        .btn-easy { background: #059669; box-shadow: 0 4px 14px rgba(5,150,105,0.4); }
+        .btn-normal { background: #D97706; box-shadow: 0 4px 14px rgba(217,119,6,0.4); }
+        .btn-hard { background: #DC2626; box-shadow: 0 4px 14px rgba(220,38,38,0.4); }
 
-        /* Top Nav Icons */
-        .nav-btn { position: absolute; top: 15px; z-index: 20; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid #fff; color: #fff; font-size: 1.5rem; display: flex; justify-content: center; align-items: center; cursor: pointer; backdrop-filter: blur(5px); }
-        #btn-back { left: 15px; }
-        #btn-pause { right: 15px; }
+        /* Top Navigation Buttons */
+        .nav-btn { 
+            position: absolute; 
+            top: 20px; 
+            z-index: 20; 
+            width: 52px; 
+            height: 52px; 
+            border-radius: 50%; 
+            background: rgba(255,255,255,0.25); 
+            border: 2px solid rgba(255,255,255,0.8); 
+            color: #fff; 
+            font-size: 1.5rem; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer; 
+            backdrop-filter: blur(6px); 
+            touch-action: manipulation;
+        }
+        #btn-back { left: 20px; }
+        #btn-pause { right: 20px; }
 
-        /* HUD Overlays */
-        #hud { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 30px; background: rgba(0,0,0,0.6); padding: 10px 25px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); font-size: 1.4rem; font-weight: bold; }
-        .hud-item { display: flex; align-items: center; gap: 8px; }
-        .hud-val { color: #FFE600; }
+        /* HUD Overlay Bar */
+        #hud { 
+            position: absolute; 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 5; 
+            display: flex; 
+            gap: 20px; 
+            background: rgba(0,0,0,0.7); 
+            padding: 10px 24px; 
+            border-radius: 30px; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            font-size: 1.25rem; 
+            font-weight: 700; 
+            backdrop-filter: blur(4px);
+        }
+        .hud-item { display: flex; align-items: center; gap: 6px; }
+        .hud-val { color: #FBBF24; }
 
-        /* Screen Flash Feedback Overlays */
-        #feedback-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; transition: background 0.1s ease-out; }
-        .flash-success { background: rgba(16, 185, 129, 0.4) !important; border: 15px solid #10B981; }
-        .flash-error { background: rgba(239, 68, 68, 0.4) !important; border: 15px solid #EF4444; }
+        /* Screen Flash Visual Feedback Overlays */
+        #feedback-overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            z-index: 4; 
+            transition: background 0.15s ease-out, border 0.15s ease-out; 
+        }
+        .flash-success { background: rgba(16, 185, 129, 0.3) !important; border: 16px solid #10B981 !important; }
+        .flash-error { background: rgba(239, 68, 68, 0.3) !important; border: 16px solid #EF4444 !important; }
 
-        /* Orientation Alert */
-        #orientation-warning { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220,38,38,0.95); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; }
+        /* Device Orientation Warning */
+        #orientation-warning { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(185, 28, 28, 0.98); 
+            z-index: 100; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            text-align: center; 
+            padding: 24px; 
+        }
 
         /* Countdown Overlay */
-        #countdown-overlay { font-size: 8rem; font-weight: 900; color: #FFE600; text-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        #countdown-overlay { 
+            font-size: 7rem; 
+            font-weight: 900; 
+            color: #FBBF24; 
+            text-shadow: 0 0 24px rgba(0,0,0,0.9); 
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -63,25 +161,25 @@
     <canvas id="ui-canvas"></canvas>
     <div id="feedback-overlay"></div>
 
-    <!-- Top Action Buttons -->
+    <!-- Navigation Icon Buttons -->
     <button id="btn-back" class="nav-btn hidden">←</button>
     <button id="btn-pause" class="nav-btn hidden">❚❚</button>
 
-    <!-- In-Game HUD -->
+    <!-- In-Game Status HUD -->
     <div id="hud" class="hidden">
         <div class="hud-item">คะแนน: <span id="hud-score" class="hud-val">0</span></div>
-        <div class="hud-item">ข้อผิดพลาด: <span id="hud-errors" class="hud-val" style="color: #EF4444;">0</span></div>
+        <div class="hud-item">ผิดพลาด: <span id="hud-errors" class="hud-val" style="color: #EF4444;">0</span></div>
         <div class="hud-item">เวลา: <span id="hud-timer" class="hud-val">05:00</span></div>
     </div>
 
-    <!-- Screen 1: Game Selection -->
+    <!-- Screen 1: Exercise Selection -->
     <div id="screen-game-select" class="screen">
-        <h1>ระบบฝึกการทรงตัวด้วย AR</h1>
+        <h1>ฝึกการทรงตัวด้วย AR</h1>
         <p>กรุณาเลือกรูปแบบการฝึกปฏิบัติ</p>
         <div class="btn-container">
-            <button class="btn" onclick="selectGame('steady')">1. เลียนแบบท่าทาง<br><small style="font-size:0.8rem; font-weight:normal;">(Steady-State Balance)</small></button>
-            <button class="btn" onclick="selectGame('proactive')">2. เอื้อมมือแตะจุด<br><small style="font-size:0.8rem; font-weight:normal;">(Proactive Balance)</small></button>
-            <button class="btn" onclick="selectGame('reactive')">3. เก็บของจากฟ้า<br><small style="font-size:0.8rem; font-weight:normal;">(Reactive Balance)</small></button>
+            <button class="btn" onclick="selectGame('steady')">1. เลียนแบบท่าทาง<br><small style="font-size:0.85rem; font-weight:normal;">(Steady-State Balance)</small></button>
+            <button class="btn" onclick="selectGame('proactive')">2. เอื้อมมือแตะจุด<br><small style="font-size:0.85rem; font-weight:normal;">(Proactive Balance)</small></button>
+            <button class="btn" onclick="selectGame('reactive')">3. เก็บของจากฟ้า<br><small style="font-size:0.85rem; font-weight:normal;">(Reactive Balance)</small></button>
         </div>
     </div>
 
@@ -97,8 +195,8 @@
 
     <!-- Screen 3: Start / Countdown -->
     <div id="screen-start" class="screen hidden">
-        <h2 id="start-game-name">พร้อมที่จะเริ่มเกม</h2>
-        <p id="start-instructions">จัดวางร่างกายให้อยู่ในตำแหน่งที่มองเห็นชัดเจน</p>
+        <h2 id="start-game-name">พร้อมที่จะเริ่มการฝึก</h2>
+        <p id="start-instructions">ตั้งสมาร์ทโฟนให้อยู่ในแนวตั้ง และยืนให้อยู่ในระยะที่มองเห็นเต็มตัว</p>
         <button id="btn-start-countdown" class="btn btn-easy" style="width: 200px;" onclick="triggerCountdown()">เริ่ม</button>
         <div id="countdown-overlay" class="hidden">3</div>
     </div>
@@ -114,23 +212,22 @@
 
     <!-- Screen 5: Results Screen -->
     <div id="screen-result" class="screen hidden">
-        <h2>สรุปผลการฝึก</h2>
-        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin: 20px 0; width: 100%; max-width: 320px;">
-            <p style="margin-bottom: 10px;">คะแนนรวม: <strong id="res-score" style="color:#FFE600; font-size: 1.8rem;">0</strong></p>
-            <p style="margin-bottom: 0;">จำนวนข้อผิดพลาด: <strong id="res-errors" style="color:#EF4444; font-size: 1.8rem;">0</strong></p>
+        <h2>สรุปผลการฝึกปฏิบัติ</h2>
+        <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 24px; border-radius: 20px; margin: 20px 0; width: 100%; max-width: 320px;">
+            <p style="margin-bottom: 12px; font-size: 1.3rem;">คะแนนรวม: <strong id="res-score" style="color:#FBBF24; font-size: 2rem; display: block; margin-top: 4px;">0</strong></p>
+            <p style="margin-bottom: 0; font-size: 1.3rem;">ข้อผิดพลาด: <strong id="res-errors" style="color:#EF4444; font-size: 2rem; display: block; margin-top: 4px;">0</strong></p>
         </div>
         <button class="btn" onclick="exitToMain()">กลับหน้าหลัก</button>
     </div>
 
-    <!-- Orientation Alert -->
+    <!-- Orientation Alert Overlay -->
     <div id="orientation-warning" class="hidden">
         <h2>กรุณาเปลี่ยนทิศทางการวางสมาร์ทโฟน</h2>
-        <p id="orientation-msg">โปรดหมุนอุปกรณ์ให้เป็นแนวที่เหมาะสมกับเกมนี้</p>
+        <p id="orientation-msg">โปรดหมุนอุปกรณ์ให้อยู่ใน "แนวตั้ง" (Portrait) สำหรับการฝึกนี้</p>
     </div>
 </div>
 
 <script>
-    // --- APP STATE & CONFIGURATION ---
     const STATE = {
         currentGame: null,  // 'steady', 'proactive', 'reactive'
         currentStage: null, // 'easy', 'normal', 'hard'
@@ -141,9 +238,12 @@
         timeRemaining: 300, // 5 minutes in seconds
         timerInterval: null,
         poseLandmarks: null,
-        // Game-Specific Variables
-        steady: { targetPoseIdx: 0, holdTimer: 0, targetHoldTime: 3, lastCheckTime: 0 },
-        proactive: { targetDot: null, initialAnkles: null, spawnTime: 0, lifeSpan: 5, reachDistFactor: 1.15 },
+        
+        // Game 1 State
+        steady: { targetPoseIdx: 0, holdTimer: 0, targetHoldTime: 3 },
+        // Game 2 State
+        proactive: { targetDot: null, initialAnkles: null, lifeSpan: 5, reachDistFactor: 1.15 },
+        // Game 3 State
         reactive: { items: [], speedFactor: 1.0, spawnTimer: 0 }
     };
 
@@ -153,14 +253,13 @@
         reactive: { easy: { speed: 0.75 }, normal: { speed: 1.0 }, hard: { speed: 1.5 } }
     };
 
-    // Preset Postures for Game 1 (Simplified Angular Definitions)
+    // Preset Pose Configurations for Game 1 (Using keypoint indexes)
     const POSES = [
-        { name: "T-Pose", angles: [{ j1: 11, j2: 13, j3: 15, target: 180 }, { j1: 12, j2: 14, j3: 16, target: 180 }] },
-        { name: "Hands Up", angles: [{ j1: 23, j2: 11, j3: 13, target: 180 }, { j1: 24, j2: 12, j3: 14, target: 180 }] },
-        { name: "Right Tree", angles: [{ j1: 24, j2: 26, j3: 28, target: 120 }] }
+        { name: "กางแขน 2 ข้าง (T-Pose)", angles: [{ j1: 11, j2: 13, j3: 15, target: 180 }, { j1: 12, j2: 14, j3: 16, target: 180 }] },
+        { name: "ยกแขนขึ้นสองข้าง (Hands Up)", angles: [{ j1: 23, j2: 11, j3: 13, target: 180 }, { j1: 24, j2: 12, j3: 14, target: 180 }] },
+        { name: "ยกแขนขวาเฉียง (Right Diagonal Reach)", angles: [{ j1: 23, j2: 11, j3: 13, target: 135 }] }
     ];
 
-    // --- DOM ELEMENTS ---
     const videoElement = document.getElementById('webcam');
     const gameCanvas = document.getElementById('game-canvas');
     const gCtx = gameCanvas.getContext('2d');
@@ -178,7 +277,6 @@
     const hud = document.getElementById('hud');
     const feedbackOverlay = document.getElementById('feedback-overlay');
 
-    // --- INITIALIZATION & MEDIAPIPE ---
     function resizeCanvas() {
         gameCanvas.width = uiCanvas.width = window.innerWidth;
         gameCanvas.height = uiCanvas.height = window.innerHeight;
@@ -194,11 +292,10 @@
 
     const camera = new Camera(videoElement, {
         onFrame: async () => { await pose.send({ image: videoElement }); },
-        width: 1280, height: 720
+        width: 720, height: 1280
     });
     camera.start();
 
-    // --- NAVIGATION & FLOW CONTROL ---
     function selectGame(game) {
         STATE.currentGame = game;
         screenGameSelect.classList.add('hidden');
@@ -261,7 +358,6 @@
         STATE.proactive.initialAnkles = null;
         STATE.reactive.items = [];
 
-        // Apply Stage Configurations
         if (STATE.currentGame === 'steady') {
             STATE.steady.targetHoldTime = GAME_CONFIG.steady[STATE.currentStage].hold;
         } else if (STATE.currentGame === 'proactive') {
@@ -328,23 +424,20 @@
 
     function triggerFeedback(type) {
         feedbackOverlay.className = type === 'success' ? 'flash-success' : 'flash-error';
-        setTimeout(() => { feedbackOverlay.className = ''; }, 400);
+        setTimeout(() => { feedbackOverlay.className = ''; }, 450);
     }
 
+    /* All games now mandate Portrait orientation */
     function checkOrientation() {
         if (!STATE.currentGame) return;
         const isLandscape = window.innerWidth > window.innerHeight;
-        const reqLandscape = (STATE.currentGame === 'proactive');
-        if ((reqLandscape && !isLandscape) || (!reqLandscape && isLandscape)) {
+        if (isLandscape) {
             orientationWarning.classList.remove('hidden');
-            document.getElementById('orientation-msg').innerText = reqLandscape ?
-                "โปรดวางสมาร์ทโฟนในแนวนอน (Landscape)" : "โปรดวางสมาร์ทโฟนในแนวตั้ง (Portrait)";
         } else {
             orientationWarning.classList.add('hidden');
         }
     }
 
-    // --- BIOMECHANICAL MATH HELPERS ---
     function calculateAngle(p1, p2, p3) {
         const radians = Math.atan2(p3.y - p2.y, p3.x - p2.x) - Math.atan2(p1.y - p2.y, p1.x - p2.x);
         let angle = Math.abs((radians * 180.0) / Math.PI);
@@ -356,15 +449,14 @@
         return Math.hypot(p1.x - p2.x, p1.y - p2.y);
     }
 
-    // --- MEDIAPIPE FRAME PROCESSING & GAME LOOP ---
     function onPoseResults(results) {
-        // Render Camera Frame Mirroring
+        // Draw video frame to game Canvas
         gCtx.save();
         gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-        gCtx.scale(-1, 1);
-        gCtx.drawImage(results.image, -gameCanvas.width, 0, gameCanvas.width, gameCanvas.height);
+        gCtx.drawImage(results.image, 0, 0, gameCanvas.width, gameCanvas.height);
         gCtx.restore();
 
+        // Clear UI Overlay Canvas
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
 
         if (!results.poseLandmarks) return;
@@ -377,33 +469,33 @@
         }
     }
 
-    // --- GAME 1: STEADY-STATE BALANCE ---
     function runSteadyStateGame(lm) {
         const currentPose = POSES[STATE.steady.targetPoseIdx];
         let anglesMatched = true;
 
-        // Check posture angles with +/- 15 degree tolerance
         for (let rule of currentPose.angles) {
             const actual = calculateAngle(lm[rule.j1], lm[rule.j2], lm[rule.j3]);
-            if (Math.abs(actual - rule.target) > 15) {
+            if (Math.abs(actual - rule.target) > 15) { // ±15 degree tolerance
                 anglesMatched = false;
                 break;
             }
         }
 
-        // Render target silhouette prompt on overlay
-        uiCtx.fillStyle = anglesMatched ? "rgba(16, 185, 129, 0.8)" : "rgba(255, 255, 255, 0.8)";
-        uiCtx.font = "bold 28px sans-serif";
+        // Render instruction text (Drawing text in mirrored space needs scale adjustment)
+        uiCtx.save();
+        uiCtx.scale(-1, 1);
+        uiCtx.fillStyle = anglesMatched ? "#10B981" : "#FFFFFF";
+        uiCtx.font = "bold 26px sans-serif";
         uiCtx.textAlign = "center";
-        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, uiCanvas.width / 2, 100);
-
+        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, -uiCanvas.width / 2, 100);
+        
+        // Progress hold bar
         if (anglesMatched) {
-            STATE.steady.holdTimer += 0.033; // Approx time step (~30fps)
+            STATE.steady.holdTimer += 0.033;
             const progress = Math.min(STATE.steady.holdTimer / STATE.steady.targetHoldTime, 1.0);
             
-            // Draw Progress Bar
             uiCtx.fillStyle = "#10B981";
-            uiCtx.fillRect(uiCanvas.width / 2 - 150, 120, 300 * progress, 15);
+            uiCtx.fillRect(-uiCanvas.width / 2 - 150, 120, 300 * progress, 16);
 
             if (STATE.steady.holdTimer >= STATE.steady.targetHoldTime) {
                 STATE.score += 1;
@@ -415,15 +507,15 @@
         } else {
             STATE.steady.holdTimer = Math.max(0, STATE.steady.holdTimer - 0.05);
         }
+        uiCtx.restore();
     }
 
-    // --- GAME 2: PROACTIVE BALANCE ---
     function runProactiveGame(lm) {
         const lAnkle = lm[27], rAnkle = lm[28];
         const lShoulder = lm[11], rShoulder = lm[12];
         const lWrist = lm[15], rWrist = lm[16];
 
-        // Foot movement detection relative to initial placement
+        // Foot movement/error detection
         if (!STATE.proactive.initialAnkles) {
             STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } };
         } else {
@@ -431,45 +523,49 @@
             const currentMoveL = getDistance(lAnkle, STATE.proactive.initialAnkles.l);
             const currentMoveR = getDistance(rAnkle, STATE.proactive.initialAnkles.r);
 
-            if ((currentMoveL > baseDist * 0.25 || currentMoveR > baseDist * 0.25) && baseDist > 0.05) {
+            if ((currentMoveL > baseDist * 0.25 || currentMoveR > baseDist * 0.25) && baseDist > 0.04) {
                 STATE.errors += 1;
                 triggerFeedback('error');
-                STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } }; // Reset baseline
+                STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } };
                 updateHUD();
             }
         }
 
-        // Spawn Target Dot based on Arm Reach distance
+        // Spawn Target Dot relative to shoulder reach
         if (!STATE.proactive.targetDot) {
             const armLen = getDistance(lShoulder, lWrist);
             const reachRadius = armLen * STATE.proactive.reachDistFactor;
             
-            // Randomize reach direction around shoulders
-            const angle = (Math.random() * Math.PI) - (Math.PI / 2); // Ahead/Side arc
-            const targetX = lShoulder.x + Math.cos(angle) * reachRadius;
-            const targetY = lShoulder.y + Math.sin(angle) * reachRadius;
+            // Random angle across upper reach arc
+            const angle = (Math.random() * Math.PI) - (Math.PI / 2); 
+            let targetX = lShoulder.x + Math.cos(angle) * reachRadius;
+            let targetY = lShoulder.y + Math.sin(angle) * reachRadius;
+
+            // Constrain target within canvas boundaries
+            targetX = Math.max(0.15, Math.min(0.85, targetX));
+            targetY = Math.max(0.2, Math.min(0.7, targetY));
 
             STATE.proactive.targetDot = { x: targetX, y: targetY, createdAt: Date.now() };
         }
 
         const dot = STATE.proactive.targetDot;
-        const screenX = (1 - dot.x) * uiCanvas.width; // Mirrored Screen Space
+        const screenX = dot.x * uiCanvas.width;
         const screenY = dot.y * uiCanvas.height;
 
-        // Render Target Dot
+        // Render target dot directly on mirrored canvas
         uiCtx.beginPath();
-        uiCtx.arc(screenX, screenY, 35, 0, 2 * Math.PI);
-        uiCtx.fillStyle = "#FFE600";
+        uiCtx.arc(screenX, screenY, 36, 0, 2 * Math.PI);
+        uiCtx.fillStyle = "#FBBF24";
         uiCtx.fill();
         uiCtx.lineWidth = 4;
-        uiCtx.strokeStyle = "#FFF";
+        uiCtx.strokeStyle = "#FFFFFF";
         uiCtx.stroke();
 
-        // Check Wrist Touch Intersections
-        const wrist1 = { x: (1 - lWrist.x) * uiCanvas.width, y: lWrist.y * uiCanvas.height };
-        const wrist2 = { x: (1 - rWrist.x) * uiCanvas.width, y: rWrist.y * uiCanvas.height };
+        // Check hand intersection (using direct x coordinates in mirrored space)
+        const wrist1 = { x: lWrist.x * uiCanvas.width, y: lWrist.y * uiCanvas.height };
+        const wrist2 = { x: rWrist.x * uiCanvas.width, y: rWrist.y * uiCanvas.height };
 
-        if (Math.hypot(wrist1.x - screenX, wrist1.y - screenY) < 50 || Math.hypot(wrist2.x - screenX, wrist2.y - screenY) < 50) {
+        if (Math.hypot(wrist1.x - screenX, wrist1.y - screenY) < 55 || Math.hypot(wrist2.x - screenX, wrist2.y - screenY) < 55) {
             STATE.score += 1;
             triggerFeedback('success');
             STATE.proactive.targetDot = null;
@@ -482,49 +578,51 @@
         }
     }
 
-    // --- GAME 3: REACTIVE BALANCE ---
     function runReactiveGame(lm) {
         const lShoulder = lm[11], rShoulder = lm[12];
         const shoulderCenter = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
 
-        // Position Basket above user's head center
-        const basketX = (1 - shoulderCenter.x) * uiCanvas.width;
+        // Position basket directly above head center
+        const basketX = shoulderCenter.x * uiCanvas.width;
         const basketY = (shoulderCenter.y * uiCanvas.height) - 120;
-        const basketWidth = 140;
+        const basketWidth = 130;
 
         // Render Basket
-        uiCtx.fillStyle = "#F59E0B";
+        uiCtx.fillStyle = "#D97706";
         uiCtx.beginPath();
-        uiCtx.roundRect(basketX - basketWidth/2, basketY, basketWidth, 30, [0, 0, 15, 15]);
+        uiCtx.roundRect(basketX - basketWidth / 2, basketY, basketWidth, 28, [0, 0, 14, 14]);
         uiCtx.fill();
-        uiCtx.strokeStyle = "#FFF";
+        uiCtx.strokeStyle = "#FFFFFF";
         uiCtx.lineWidth = 3;
         uiCtx.stroke();
 
-        // Spawn Falling Objects
+        // Spawn falling items
         STATE.reactive.spawnTimer += 0.033;
-        if (STATE.reactive.spawnTimer > 2.0) {
+        if (STATE.reactive.spawnTimer > 1.8) {
             STATE.reactive.items.push({
-                x: Math.random() * (uiCanvas.width - 60) + 30,
+                x: Math.random() * (uiCanvas.width - 80) + 40,
                 y: -20,
-                speed: (3 + Math.random() * 3) * STATE.reactive.speedFactor
+                speed: (3.5 + Math.random() * 2.5) * STATE.reactive.speedFactor
             });
             STATE.reactive.spawnTimer = 0;
         }
 
-        // Update and Render Falling Items
+        // Render and process falling items
         for (let i = STATE.reactive.items.length - 1; i >= 0; i--) {
             let item = STATE.reactive.items[i];
             item.y += item.speed;
 
             uiCtx.beginPath();
             uiCtx.arc(item.x, item.y, 18, 0, 2 * Math.PI);
-            uiCtx.fillStyle = "#4DEEEA";
+            uiCtx.fillStyle = "#38BDF8";
             uiCtx.fill();
+            uiCtx.strokeStyle = "#FFFFFF";
+            uiCtx.lineWidth = 2;
+            uiCtx.stroke();
 
-            // Collision Detection with Basket
-            if (item.y >= basketY && item.y <= basketY + 30 &&
-                item.x >= (basketX - basketWidth/2) && item.x <= (basketX + basketWidth/2)) {
+            // Collision detection with basket
+            if (item.y >= basketY && item.y <= basketY + 28 &&
+                item.x >= (basketX - basketWidth / 2) && item.x <= (basketX + basketWidth / 2)) {
                 STATE.score += 1;
                 triggerFeedback('success');
                 STATE.reactive.items.splice(i, 1);
