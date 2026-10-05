@@ -16,8 +16,8 @@
         #app-container { position: relative; width: 100vw; height: 100vh; background: #000; overflow: hidden; }
         video { display: none; }
         
-        /* Mirror both canvas layers uniformly */
-        canvas { 
+        /* Game Canvas (video background) is horizontally mirrored */
+        #game-canvas { 
             position: absolute; 
             top: 0; 
             left: 0; 
@@ -25,6 +25,17 @@
             height: 100%; 
             transform: scaleX(-1); 
             object-fit: cover; 
+        }
+
+        /* UI Canvas overlay is NOT scaledX(-1) so text renders correctly */
+        #ui-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            object-fit: cover;
         }
 
         /* Screen Overlays */
@@ -126,8 +137,8 @@
         .flash-success { background: rgba(16, 185, 129, 0.3) !important; border: 16px solid #10B981 !important; }
         .flash-error { background: rgba(239, 68, 68, 0.3) !important; border: 16px solid #EF4444 !important; }
 
-        /* Device Orientation Warning */
-        #orientation-warning { 
+        /* Device Orientation & Camera Warning Modals */
+        #orientation-warning, #camera-error-modal { 
             position: absolute; 
             top: 0; 
             left: 0; 
@@ -225,6 +236,13 @@
         <h2>กรุณาเปลี่ยนทิศทางการวางสมาร์ทโฟน</h2>
         <p id="orientation-msg">โปรดหมุนอุปกรณ์ให้อยู่ใน "แนวตั้ง" (Portrait) สำหรับการฝึกนี้</p>
     </div>
+
+    <!-- Camera Error Modal -->
+    <div id="camera-error-modal" class="hidden">
+        <h2>ไม่สามารถเข้าถึงกล้องได้</h2>
+        <p id="camera-error-msg">กรุณ นอนุญาตให้เว็บไซต์ใช้งานกล้องถ่ายรูปในเบราว์เซอร์ของคุณ</p>
+        <button class="btn btn-easy" style="width: 200px; margin-top: 10px;" onclick="initCamera()">ลองใหม่อีกครั้ง</button>
+    </div>
 </div>
 
 <script>
@@ -253,7 +271,7 @@
         reactive: { easy: { speed: 0.75 }, normal: { speed: 1.0 }, hard: { speed: 1.5 } }
     };
 
-    // Preset Pose Configurations for Game 1 (Using keypoint indexes)
+    // Preset Pose Configurations for Game 1
     const POSES = [
         { name: "กางแขน 2 ข้าง (T-Pose)", angles: [{ j1: 11, j2: 13, j3: 15, target: 180 }, { j1: 12, j2: 14, j3: 16, target: 180 }] },
         { name: "ยกแขนขึ้นสองข้าง (Hands Up)", angles: [{ j1: 23, j2: 11, j3: 13, target: 180 }, { j1: 24, j2: 12, j3: 14, target: 180 }] },
@@ -272,6 +290,7 @@
     const screenPause = document.getElementById('screen-pause');
     const screenResult = document.getElementById('screen-result');
     const orientationWarning = document.getElementById('orientation-warning');
+    const cameraErrorModal = document.getElementById('camera-error-modal');
     const btnBack = document.getElementById('btn-back');
     const btnPause = document.getElementById('btn-pause');
     const hud = document.getElementById('hud');
@@ -290,13 +309,41 @@
     pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
     pose.onResults(onPoseResults);
 
-    const camera = new Camera(videoElement, {
-        onFrame: async () => { await pose.send({ image: videoElement }); },
-        width: 720, height: 1280
+    let cameraInstance = null;
+    let isCameraStarting = false;
+
+    async function initCamera() {
+        if (cameraInstance || isCameraStarting) return;
+        isCameraStarting = true;
+        
+        try {
+            cameraInstance = new Camera(videoElement, {
+                onFrame: async () => {
+                    if (videoElement.readyState >= 2) {
+                        await pose.send({ image: videoElement });
+                    }
+                },
+                width: 720,
+                height: 1280
+            });
+            await cameraInstance.start();
+            cameraErrorModal.classList.add('hidden');
+        } catch (err) {
+            console.error("Camera permission or initialization error:", err);
+            cameraErrorModal.classList.remove('hidden');
+            cameraInstance = null;
+        } finally {
+            isCameraStarting = false;
+        }
+    }
+
+    // Attempt initial camera start gracefully on window load or user gesture
+    window.addEventListener('load', () => {
+        initCamera();
     });
-    camera.start();
 
     function selectGame(game) {
+        initCamera(); // Ensure camera access on user interaction
         STATE.currentGame = game;
         screenGameSelect.classList.add('hidden');
         screenStageSelect.classList.remove('hidden');
@@ -372,6 +419,7 @@
         btnPause.classList.remove('hidden');
         btnBack.classList.add('hidden');
 
+        if (STATE.timerInterval) clearInterval(STATE.timerInterval);
         STATE.timerInterval = setInterval(() => {
             if (!STATE.isPaused) {
                 STATE.timeRemaining--;
@@ -427,7 +475,7 @@
         setTimeout(() => { feedbackOverlay.className = ''; }, 450);
     }
 
-    /* All games now mandate Portrait orientation */
+    // All games use Portrait orientation
     function checkOrientation() {
         if (!STATE.currentGame) return;
         const isLandscape = window.innerWidth > window.innerHeight;
@@ -450,13 +498,13 @@
     }
 
     function onPoseResults(results) {
-        // Draw video frame to game Canvas
+        // Draw video frame onto mirrored game Canvas
         gCtx.save();
         gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
         gCtx.drawImage(results.image, 0, 0, gameCanvas.width, gameCanvas.height);
         gCtx.restore();
 
-        // Clear UI Overlay Canvas
+        // Clear un-mirrored UI Overlay Canvas
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
 
         if (!results.poseLandmarks) return;
@@ -481,13 +529,12 @@
             }
         }
 
-        // Render instruction text (Drawing text in mirrored space needs scale adjustment)
+        // Render instruction text (Direct un-mirrored rendering on uiCanvas)
         uiCtx.save();
-        uiCtx.scale(-1, 1);
         uiCtx.fillStyle = anglesMatched ? "#10B981" : "#FFFFFF";
         uiCtx.font = "bold 26px sans-serif";
         uiCtx.textAlign = "center";
-        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, -uiCanvas.width / 2, 100);
+        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, uiCanvas.width / 2, 100);
         
         // Progress hold bar
         if (anglesMatched) {
@@ -495,7 +542,7 @@
             const progress = Math.min(STATE.steady.holdTimer / STATE.steady.targetHoldTime, 1.0);
             
             uiCtx.fillStyle = "#10B981";
-            uiCtx.fillRect(-uiCanvas.width / 2 - 150, 120, 300 * progress, 16);
+            uiCtx.fillRect(uiCanvas.width / 2 - 150, 120, 300 * progress, 16);
 
             if (STATE.steady.holdTimer >= STATE.steady.targetHoldTime) {
                 STATE.score += 1;
@@ -538,21 +585,24 @@
             
             // Random angle across upper reach arc
             const angle = (Math.random() * Math.PI) - (Math.PI / 2); 
-            let targetX = lShoulder.x + Math.cos(angle) * reachRadius;
-            let targetY = lShoulder.y + Math.sin(angle) * reachRadius;
+            let targetNormX = lShoulder.x + Math.cos(angle) * reachRadius;
+            let targetNormY = lShoulder.y + Math.sin(angle) * reachRadius;
 
             // Constrain target within canvas boundaries
-            targetX = Math.max(0.15, Math.min(0.85, targetX));
-            targetY = Math.max(0.2, Math.min(0.7, targetY));
+            targetNormX = Math.max(0.15, Math.min(0.85, targetNormX));
+            targetNormY = Math.max(0.2, Math.min(0.7, targetNormY));
 
-            STATE.proactive.targetDot = { x: targetX, y: targetY, createdAt: Date.now() };
+            STATE.proactive.targetDot = { normX: targetNormX, normY: targetNormY, createdAt: Date.now() };
         }
 
         const dot = STATE.proactive.targetDot;
-        const screenX = dot.x * uiCanvas.width;
-        const screenY = dot.y * uiCanvas.height;
+        
+        // MIRROR CONVERSION for UI Canvas (1 - normX)
+        // Moving user's real-life right side moves on-screen right side!
+        const screenX = (1 - dot.normX) * uiCanvas.width;
+        const screenY = dot.normY * uiCanvas.height;
 
-        // Render target dot directly on mirrored canvas
+        // Render target dot
         uiCtx.beginPath();
         uiCtx.arc(screenX, screenY, 36, 0, 2 * Math.PI);
         uiCtx.fillStyle = "#FBBF24";
@@ -561,9 +611,9 @@
         uiCtx.strokeStyle = "#FFFFFF";
         uiCtx.stroke();
 
-        // Check hand intersection (using direct x coordinates in mirrored space)
-        const wrist1 = { x: lWrist.x * uiCanvas.width, y: lWrist.y * uiCanvas.height };
-        const wrist2 = { x: rWrist.x * uiCanvas.width, y: rWrist.y * uiCanvas.height };
+        // Calculate user wrist positions in mirrored screen space
+        const wrist1 = { x: (1 - lWrist.x) * uiCanvas.width, y: lWrist.y * uiCanvas.height };
+        const wrist2 = { x: (1 - rWrist.x) * uiCanvas.width, y: rWrist.y * uiCanvas.height };
 
         if (Math.hypot(wrist1.x - screenX, wrist1.y - screenY) < 55 || Math.hypot(wrist2.x - screenX, wrist2.y - screenY) < 55) {
             STATE.score += 1;
@@ -582,8 +632,8 @@
         const lShoulder = lm[11], rShoulder = lm[12];
         const shoulderCenter = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
 
-        // Position basket directly above head center
-        const basketX = shoulderCenter.x * uiCanvas.width;
+        // MIRROR CONVERSION: Position basket directly above head center in screen coordinates
+        const basketX = (1 - shoulderCenter.x) * uiCanvas.width;
         const basketY = (shoulderCenter.y * uiCanvas.height) - 120;
         const basketWidth = 130;
 
