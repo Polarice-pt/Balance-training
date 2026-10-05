@@ -265,6 +265,16 @@
         reactive: { items: [], speedFactor: 1.0, spawnTimer: 0 }
     };
 
+    // Render parameters to maintain natural aspect ratio without stretching
+    let renderParams = { drawW: 0, drawH: 0, offsetX: 0, offsetY: 0 };
+
+    function normToScreen(normX, normY) {
+        return {
+            x: renderParams.offsetX + (1 - normX) * renderParams.drawW,
+            y: renderParams.offsetY + normY * renderParams.drawH
+        };
+    }
+
     const GAME_CONFIG = {
         steady: { easy: { hold: 1 }, normal: { hold: 3 }, hard: { hold: 5 } },
         proactive: { easy: { reach: 1.15, span: 5 }, normal: { reach: 1.25, span: 5 }, hard: { reach: 1.25, span: 3 } },
@@ -498,10 +508,30 @@
     }
 
     function onPoseResults(results) {
-        // Draw video frame onto mirrored game Canvas
+        // Calculate aspect ratio cover dimensions to prevent vertical/horizontal stretching
+        const imgW = results.image.width || 720;
+        const imgH = results.image.height || 1280;
+        const imgAspect = imgW / imgH;
+        const canvasAspect = gameCanvas.width / gameCanvas.height;
+
+        let drawW, drawH, offsetX, offsetY;
+        if (canvasAspect > imgAspect) {
+            drawW = gameCanvas.width;
+            drawH = gameCanvas.width / imgAspect;
+            offsetX = 0;
+            offsetY = (gameCanvas.height - drawH) / 2;
+        } else {
+            drawH = gameCanvas.height;
+            drawW = gameCanvas.height * imgAspect;
+            offsetX = (gameCanvas.width - drawW) / 2;
+            offsetY = 0;
+        }
+        renderParams = { drawW, drawH, offsetX, offsetY };
+
+        // Draw video frame onto mirrored game Canvas preserving natural aspect ratio
         gCtx.save();
         gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-        gCtx.drawImage(results.image, 0, 0, gameCanvas.width, gameCanvas.height);
+        gCtx.drawImage(results.image, offsetX, offsetY, drawW, drawH);
         gCtx.restore();
 
         // Clear un-mirrored UI Overlay Canvas
@@ -521,8 +551,17 @@
         const currentPose = POSES[STATE.steady.targetPoseIdx];
         let anglesMatched = true;
 
+        // Convert normalized landmarks to pixel space for true aspect-corrected angle calculation
+        function getPixelPt(keypoint) {
+            return {
+                x: (1 - keypoint.x) * renderParams.drawW,
+                y: keypoint.y * renderParams.drawH
+            };
+        }
+
         for (let rule of currentPose.angles) {
-            const actual = calculateAngle(lm[rule.j1], lm[rule.j2], lm[rule.j3]);
+            const p1 = getPixelPt(lm[rule.j1]), p2 = getPixelPt(lm[rule.j2]), p3 = getPixelPt(lm[rule.j3]);
+            const actual = calculateAngle(p1, p2, p3);
             if (Math.abs(actual - rule.target) > 15) { // ±15 degree tolerance
                 anglesMatched = false;
                 break;
@@ -596,26 +635,22 @@
         }
 
         const dot = STATE.proactive.targetDot;
-        
-        // MIRROR CONVERSION for UI Canvas (1 - normX)
-        // Moving user's real-life right side moves on-screen right side!
-        const screenX = (1 - dot.normX) * uiCanvas.width;
-        const screenY = dot.normY * uiCanvas.height;
+        const targetPos = normToScreen(dot.normX, dot.normY);
 
         // Render target dot
         uiCtx.beginPath();
-        uiCtx.arc(screenX, screenY, 36, 0, 2 * Math.PI);
+        uiCtx.arc(targetPos.x, targetPos.y, 36, 0, 2 * Math.PI);
         uiCtx.fillStyle = "#FBBF24";
         uiCtx.fill();
         uiCtx.lineWidth = 4;
         uiCtx.strokeStyle = "#FFFFFF";
         uiCtx.stroke();
 
-        // Calculate user wrist positions in mirrored screen space
-        const wrist1 = { x: (1 - lWrist.x) * uiCanvas.width, y: lWrist.y * uiCanvas.height };
-        const wrist2 = { x: (1 - rWrist.x) * uiCanvas.width, y: rWrist.y * uiCanvas.height };
+        // Calculate user wrist positions in screen space
+        const wrist1 = normToScreen(lWrist.x, lWrist.y);
+        const wrist2 = normToScreen(rWrist.x, rWrist.y);
 
-        if (Math.hypot(wrist1.x - screenX, wrist1.y - screenY) < 55 || Math.hypot(wrist2.x - screenX, wrist2.y - screenY) < 55) {
+        if (Math.hypot(wrist1.x - targetPos.x, wrist1.y - targetPos.y) < 55 || Math.hypot(wrist2.x - targetPos.x, wrist2.y - targetPos.y) < 55) {
             STATE.score += 1;
             triggerFeedback('success');
             STATE.proactive.targetDot = null;
@@ -632,9 +667,10 @@
         const lShoulder = lm[11], rShoulder = lm[12];
         const shoulderCenter = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
 
-        // MIRROR CONVERSION: Position basket directly above head center in screen coordinates
-        const basketX = (1 - shoulderCenter.x) * uiCanvas.width;
-        const basketY = (shoulderCenter.y * uiCanvas.height) - 120;
+        // Position basket directly above head center in screen coordinates with aspect scaling
+        const shoulderPos = normToScreen(shoulderCenter.x, shoulderCenter.y);
+        const basketX = shoulderPos.x;
+        const basketY = shoulderPos.y - 120;
         const basketWidth = 130;
 
         // Render Basket
