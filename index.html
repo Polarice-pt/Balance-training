@@ -62,10 +62,10 @@
         p { font-size: 1.15rem; margin-bottom: 24px; max-width: 500px; color: #E5E7EB; line-height: 1.5; }
 
         /* Buttons Structure */
-        .btn-container { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 320px; }
+        .btn-container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 340px; }
         .btn { 
-            padding: 18px 20px; 
-            font-size: 1.25rem; 
+            padding: 15px 20px; 
+            font-size: 1.2rem; 
             font-weight: 700; 
             border: none; 
             border-radius: 16px; 
@@ -77,9 +77,11 @@
             touch-action: manipulation;
         }
         .btn:active { transform: scale(0.96); }
+        .btn-very-easy { background: #10B981; box-shadow: 0 4px 14px rgba(16,185,129,0.4); }
         .btn-easy { background: #059669; box-shadow: 0 4px 14px rgba(5,150,105,0.4); }
         .btn-normal { background: #D97706; box-shadow: 0 4px 14px rgba(217,119,6,0.4); }
         .btn-hard { background: #DC2626; box-shadow: 0 4px 14px rgba(220,38,38,0.4); }
+        .btn-very-hard { background: #7C3AED; box-shadow: 0 4px 14px rgba(124,58,237,0.4); }
 
         /* Top Navigation Buttons */
         .nav-btn { 
@@ -107,21 +109,82 @@
         #hud { 
             position: absolute; 
             top: 20px; 
-            left: 50%; 
-            transform: translateX(-50%); 
+            left: 16px;
+            right: 78px;
             z-index: 5; 
             display: flex; 
-            gap: 20px; 
-            background: rgba(0,0,0,0.7); 
-            padding: 10px 24px; 
+            justify-content: space-around;
+            gap: 10px; 
+            background: rgba(0,0,0,0.72); 
+            padding: 10px 14px; 
             border-radius: 30px; 
             border: 1px solid rgba(255,255,255,0.2); 
-            font-size: 1.25rem; 
+            font-size: 1.05rem; 
             font-weight: 700; 
             backdrop-filter: blur(4px);
         }
-        .hud-item { display: flex; align-items: center; gap: 6px; }
+        .hud-item { display: flex; align-items: center; gap: 4px; }
         .hud-val { color: #FBBF24; }
+
+        /* Game 1 Target Posture Silhouette Cards */
+        #pose-cards-wrapper {
+            position: absolute;
+            top: 80px;
+            left: 16px;
+            z-index: 6;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .pose-card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 2px solid #38BDF8;
+            border-radius: 18px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            transition: all 0.25s ease;
+        }
+        .pose-card.next-card {
+            border-color: #FBBF24;
+            transform: scale(0.86);
+            transform-origin: top left;
+            opacity: 0.95;
+        }
+        .pose-card-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #38BDF8;
+            margin-bottom: 4px;
+        }
+        .pose-card.next-card .pose-card-label { color: #FBBF24; }
+        .pose-card canvas {
+            background: rgba(30, 41, 59, 0.65);
+            border-radius: 10px;
+        }
+
+        /* Cognitive Load Instruction Banner (Very Hard Mode) */
+        #cognitive-banner {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 6;
+            background: rgba(124, 58, 237, 0.9);
+            border: 2px solid #DDD6FE;
+            color: #FFF;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
 
         /* Screen Flash Visual Feedback Overlays */
         #feedback-overlay { 
@@ -183,6 +246,21 @@
         <div class="hud-item">เวลา: <span id="hud-timer" class="hud-val">05:00</span></div>
     </div>
 
+    <!-- Game 1 Target Silhouette Cards -->
+    <div id="pose-cards-wrapper" class="hidden">
+        <div class="pose-card" id="current-pose-card">
+            <div class="pose-card-label">ท่าทางปัจจุบัน</div>
+            <canvas id="current-pose-canvas" width="130" height="160"></canvas>
+        </div>
+        <div class="pose-card next-card hidden" id="next-pose-card">
+            <div class="pose-card-label">ท่าถัดไป (3 วิ)</div>
+            <canvas id="next-pose-canvas" width="130" height="160"></canvas>
+        </div>
+    </div>
+
+    <!-- Cognitive Load Prompt Banner -->
+    <div id="cognitive-banner" class="hidden">แตะ/รับ เฉพาะสีเหลืองเท่านั้น!</div>
+
     <!-- Screen 1: Exercise Selection -->
     <div id="screen-game-select" class="screen">
         <h1>ฝึกการทรงตัวด้วย AR</h1>
@@ -198,9 +276,11 @@
     <div id="screen-stage-select" class="screen hidden">
         <h2 id="stage-title">เลือกระดับความยาก</h2>
         <div class="btn-container">
+            <button class="btn btn-very-easy" onclick="selectStage('very_easy')">ง่ายมาก</button>
             <button class="btn btn-easy" onclick="selectStage('easy')">ง่าย</button>
             <button class="btn btn-normal" onclick="selectStage('normal')">ปานกลาง</button>
             <button class="btn btn-hard" onclick="selectStage('hard')">ยาก</button>
+            <button class="btn btn-very-hard" onclick="selectStage('very_hard')">ยากมาก</button>
         </div>
     </div>
 
@@ -224,9 +304,10 @@
     <!-- Screen 5: Results Screen -->
     <div id="screen-result" class="screen hidden">
         <h2>สรุปผลการฝึกปฏิบัติ</h2>
-        <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 24px; border-radius: 20px; margin: 20px 0; width: 100%; max-width: 320px;">
-            <p style="margin-bottom: 12px; font-size: 1.3rem;">คะแนนรวม: <strong id="res-score" style="color:#FBBF24; font-size: 2rem; display: block; margin-top: 4px;">0</strong></p>
-            <p style="margin-bottom: 0; font-size: 1.3rem;">ข้อผิดพลาด: <strong id="res-errors" style="color:#EF4444; font-size: 2rem; display: block; margin-top: 4px;">0</strong></p>
+        <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 24px; border-radius: 20px; margin: 20px 0; width: 100%; max-width: 340px;">
+            <p style="margin-bottom: 12px; font-size: 1.2rem;">คะแนนร้อยละ (Percentage Score): <strong id="res-percent" style="color:#10B981; font-size: 2.2rem; display: block; margin-top: 4px;">0%</strong></p>
+            <p id="res-detail" style="margin-bottom: 12px; font-size: 1rem; color: #D1D5DB;">0 / 300</p>
+            <p style="margin-bottom: 0; font-size: 1.2rem;">จำนวนข้อผิดพลาด: <strong id="res-errors" style="color:#EF4444; font-size: 1.8rem; display: block; margin-top: 4px;">0</strong></p>
         </div>
         <button class="btn" onclick="exitToMain()">กลับหน้าหลัก</button>
     </div>
@@ -240,7 +321,7 @@
     <!-- Camera Error Modal -->
     <div id="camera-error-modal" class="hidden">
         <h2>ไม่สามารถเข้าถึงกล้องได้</h2>
-        <p id="camera-error-msg">กรุณ นอนุญาตให้เว็บไซต์ใช้งานกล้องถ่ายรูปในเบราว์เซอร์ของคุณ</p>
+        <p id="camera-error-msg">กรุณาอนุญาตให้เว็บไซต์ใช้งานกล้องถ่ายรูปในเบราว์เซอร์ของคุณ</p>
         <button class="btn btn-easy" style="width: 200px; margin-top: 10px;" onclick="initCamera()">ลองใหม่อีกครั้ง</button>
     </div>
 </div>
@@ -248,21 +329,43 @@
 <script>
     const STATE = {
         currentGame: null,  // 'steady', 'proactive', 'reactive'
-        currentStage: null, // 'easy', 'normal', 'hard'
+        currentStage: null, // 'very_easy', 'easy', 'normal', 'hard', 'very_hard'
         isPaused: false,
         isGameActive: false,
         score: 0,
+        totalOpportunities: 0,
         errors: 0,
         timeRemaining: 300, // 5 minutes in seconds
         timerInterval: null,
+        lastFrameTime: 0,
         poseLandmarks: null,
         
         // Game 1 State
-        steady: { targetPoseIdx: 0, holdTimer: 0, targetHoldTime: 3 },
+        steady: {
+            shuffleBag: [],
+            currentPose: null,
+            nextPose: null,
+            poseElapsed: 0,
+            targetDuration: 10,
+            validSeconds: 0,
+            breakDuration: 0,
+            errorLoggedForBreak: false,
+            distortion10: 'blur',
+            distortion20: 'twirl'
+        },
         // Game 2 State
-        proactive: { targetDot: null, initialAnkles: null, lifeSpan: 5, reachDistFactor: 1.15 },
+        proactive: {
+            targets: [], // Array of { normX, normY, type: 'yellow'|'red'|'green', createdAt }
+            initialAnkles: null,
+            lifeSpan: 5,
+            reachDistFactor: 1.0
+        },
         // Game 3 State
-        reactive: { items: [], speedFactor: 1.0, spawnTimer: 0 }
+        reactive: {
+            items: [], // Array of { normX, normY, type: 'yellow'|'red', speedNormPerSec }
+            speedFactor: 1.0,
+            spawnTimer: 0
+        }
     };
 
     // Render parameters to maintain natural aspect ratio without stretching
@@ -276,16 +379,53 @@
     }
 
     const GAME_CONFIG = {
-        steady: { easy: { hold: 1 }, normal: { hold: 3 }, hard: { hold: 5 } },
-        proactive: { easy: { reach: 1.15, span: 5 }, normal: { reach: 1.25, span: 5 }, hard: { reach: 1.25, span: 3 } },
-        reactive: { easy: { speed: 0.75 }, normal: { speed: 1.0 }, hard: { speed: 1.5 } }
+        steady: {
+            very_easy: { duration: 10, visualCues: true, sensoryConflict: false },
+            easy:      { duration: 10, visualCues: false, sensoryConflict: false },
+            normal:    { duration: 20, visualCues: false, sensoryConflict: false },
+            hard:      { duration: 30, visualCues: false, sensoryConflict: false },
+            very_hard: { duration: 30, visualCues: false, sensoryConflict: true }
+        },
+        proactive: {
+            very_easy: { reach: 1.00, span: 5, visualCue: true, cognitiveLoad: false },
+            easy:      { reach: 1.00, span: 5, visualCue: false, cognitiveLoad: false },
+            normal:    { reach: 1.10, span: 5, visualCue: false, cognitiveLoad: false },
+            hard:      { reach: 1.10, span: 3, visualCue: false, cognitiveLoad: false },
+            very_hard: { reach: 1.10, span: 3, visualCue: false, cognitiveLoad: true }
+        },
+        reactive: {
+            very_easy: { speed: 0.70, visualCue: true, cognitiveLoad: false },
+            easy:      { speed: 0.70, visualCue: false, cognitiveLoad: false },
+            normal:    { speed: 1.00, visualCue: false, cognitiveLoad: false },
+            hard:      { speed: 1.20, visualCue: false, cognitiveLoad: false },
+            very_hard: { speed: 1.20, visualCue: false, cognitiveLoad: true }
+        }
     };
 
-    // Preset Pose Configurations for Game 1
-    const POSES = [
-        { name: "กางแขน 2 ข้าง (T-Pose)", angles: [{ j1: 11, j2: 13, j3: 15, target: 180 }, { j1: 12, j2: 14, j3: 16, target: 180 }] },
-        { name: "ยกแขนขึ้นสองข้าง (Hands Up)", angles: [{ j1: 23, j2: 11, j3: 13, target: 180 }, { j1: 24, j2: 12, j3: 14, target: 180 }] },
-        { name: "ยกแขนขวาเฉียง (Right Diagonal Reach)", angles: [{ j1: 23, j2: 11, j3: 13, target: 135 }] }
+    // All 20 Clinical Poses for Game 1 (Steady-State Balance)
+    const POSE_LIST = [
+        { id: 1, stance: 'double', arms: 'hips', th: 'ยืนขาคู่ มือเท้าสะเอว' },
+        { id: 2, stance: 'double', arms: 't_both', th: 'ยืนขาคู่ กางแขนสองข้าง' },
+        { id: 3, stance: 'double', arms: 't_right', th: 'ยืนขาคู่ กางแขนขวา' },
+        { id: 4, stance: 'double', arms: 't_left', th: 'ยืนขาคู่ กางแขนซ้าย' },
+
+        { id: 5, stance: 'tandem_r', arms: 'hips', th: 'ยืนต่อเท้า (ขวาหน้า) มือเท้าสะเอว' },
+        { id: 6, stance: 'tandem_l', arms: 'hips', th: 'ยืนต่อเท้า (ซ้ายหน้า) มือเท้าสะเอว' },
+        { id: 7, stance: 'tandem_r', arms: 't_both', th: 'ยืนต่อเท้า (ขวาหน้า) กางแขนสองข้าง' },
+        { id: 8, stance: 'tandem_l', arms: 't_both', th: 'ยืนต่อเท้า (ซ้ายหน้า) กางแขนสองข้าง' },
+        { id: 9, stance: 'tandem_r', arms: 't_right', th: 'ยืนต่อเท้า (ขวาหน้า) กางแขนขวา' },
+        { id: 10, stance: 'tandem_l', arms: 't_right', th: 'ยืนต่อเท้า (ซ้ายหน้า) กางแขนขวา' },
+        { id: 11, stance: 'tandem_r', arms: 't_left', th: 'ยืนต่อเท้า (ขวาหน้า) กางแขนซ้าย' },
+        { id: 12, stance: 'tandem_l', arms: 't_left', th: 'ยืนต่อเท้า (ซ้ายหน้า) กางแขนซ้าย' },
+
+        { id: 13, stance: 'single_r', arms: 'hips', th: 'ยืนขาเดียว (ขาขวา) มือเท้าสะเอว' },
+        { id: 14, stance: 'single_l', arms: 'hips', th: 'ยืนขาเดียว (ขาซ้าย) มือเท้าสะเอว' },
+        { id: 15, stance: 'single_r', arms: 't_both', th: 'ยืนขาเดียว (ขาขวา) กางแขนสองข้าง' },
+        { id: 16, stance: 'single_l', arms: 't_both', th: 'ยืนขาเดียว (ขาซ้าย) กางแขนสองข้าง' },
+        { id: 17, stance: 'single_r', arms: 't_right', th: 'ยืนขาเดียว (ขาขวา) กางแขนขวา' },
+        { id: 18, stance: 'single_l', arms: 't_right', th: 'ยืนขาเดียว (ขาซ้าย) กางแขนขวา' },
+        { id: 19, stance: 'single_r', arms: 't_left', th: 'ยืนขาเดียว (ขาขวา) กางแขนซ้าย' },
+        { id: 20, stance: 'single_l', arms: 't_left', th: 'ยืนขาเดียว (ขาซ้าย) กางแขนซ้าย' }
     ];
 
     const videoElement = document.getElementById('webcam');
@@ -305,6 +445,9 @@
     const btnPause = document.getElementById('btn-pause');
     const hud = document.getElementById('hud');
     const feedbackOverlay = document.getElementById('feedback-overlay');
+    const poseCardsWrapper = document.getElementById('pose-cards-wrapper');
+    const nextPoseCard = document.getElementById('next-pose-card');
+    const cognitiveBanner = document.getElementById('cognitive-banner');
 
     function resizeCanvas() {
         gameCanvas.width = uiCanvas.width = window.innerWidth;
@@ -347,13 +490,12 @@
         }
     }
 
-    // Attempt initial camera start gracefully on window load or user gesture
     window.addEventListener('load', () => {
         initCamera();
     });
 
     function selectGame(game) {
-        initCamera(); // Ensure camera access on user interaction
+        initCamera();
         STATE.currentGame = game;
         screenGameSelect.classList.add('hidden');
         screenStageSelect.classList.remove('hidden');
@@ -366,7 +508,17 @@
         screenStageSelect.classList.add('hidden');
         screenStart.classList.remove('hidden');
         const titles = { steady: 'เลียนแบบท่าทาง', proactive: 'เอื้อมมือแตะจุด', reactive: 'เก็บของจากฟ้า' };
+        const instr = {
+            steady: 'เลียนแบบท่าทางตามภาพเงาและทรงตัวให้นิ่งจนครบเวลาที่กำหนด',
+            proactive: stage === 'very_hard'
+                ? 'เอื้อมมือแตะเฉพาะจุด "สีเหลือง" เท่านั้น (ห้ามแตะสีแดงหรือสีเขียว) โดยไม่ขยับเท้า'
+                : 'เอื้อมมือแตะจุดเป้าหมายให้ทันเวลา โดยไม่ขยับเท้าออกจากตำแหน่งเดิม',
+            reactive: stage === 'very_hard'
+                ? 'เลื่อนตัวรับเฉพาะวัตถุ "สีเหลือง" ด้วยแถบรับเหนือศีรษะ (หลบวัตถุสีแดง)'
+                : 'ก้าวเท้าซ้าย-ขวาเพื่อใช้แถบรับเหนือศีรษะรับวัตถุที่ตกลงมาจากด้านบน'
+        };
         document.getElementById('start-game-name').innerText = titles[STATE.currentGame];
+        document.getElementById('start-instructions').innerText = instr[STATE.currentGame];
     }
 
     btnBack.onclick = () => {
@@ -403,25 +555,78 @@
         }, 1000);
     }
 
+    // Non-repeating Shuffle Bag for all 20 Poses
+    function drawNextPoseFromBag() {
+        if (STATE.steady.shuffleBag.length === 0) {
+            const ids = POSE_LIST.map((_, idx) => idx);
+            // Fisher-Yates shuffle
+            for (let i = ids.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [ids[i], ids[j]] = [ids[j], ids[i]];
+            }
+            // Prevent consecutive duplicate across bag refill
+            if (STATE.steady.currentPose && ids[ids.length - 1] === POSE_LIST.indexOf(STATE.steady.currentPose)) {
+                [ids[0], ids[ids.length - 1]] = [ids[ids.length - 1], ids[0]];
+            }
+            STATE.steady.shuffleBag = ids;
+        }
+        return POSE_LIST[STATE.steady.shuffleBag.pop()];
+    }
+
+    function pickRandomDistortions() {
+        const types = ['blur', 'wave', 'twirl'];
+        STATE.steady.distortion10 = types[Math.floor(Math.random() * types.length)];
+        STATE.steady.distortion20 = types[Math.floor(Math.random() * types.length)];
+    }
+
     function startGame() {
         STATE.isGameActive = true;
         STATE.isPaused = false;
         STATE.score = 0;
+        STATE.totalOpportunities = 0;
         STATE.errors = 0;
         STATE.timeRemaining = 300;
-        STATE.steady.holdTimer = 0;
-        STATE.steady.targetPoseIdx = 0;
-        STATE.proactive.targetDot = null;
-        STATE.proactive.initialAnkles = null;
-        STATE.reactive.items = [];
+        STATE.lastFrameTime = performance.now();
+
+        poseCardsWrapper.classList.add('hidden');
+        nextPoseCard.classList.add('hidden');
+        cognitiveBanner.classList.add('hidden');
+        gameCanvas.style.filter = 'none';
+        gameCanvas.style.transform = 'scaleX(-1)';
 
         if (STATE.currentGame === 'steady') {
-            STATE.steady.targetHoldTime = GAME_CONFIG.steady[STATE.currentStage].hold;
+            const cfg = GAME_CONFIG.steady[STATE.currentStage];
+            STATE.steady.shuffleBag = [];
+            STATE.steady.targetDuration = cfg.duration;
+            STATE.steady.currentPose = drawNextPoseFromBag();
+            STATE.steady.nextPose = drawNextPoseFromBag();
+            STATE.steady.poseElapsed = 0;
+            STATE.steady.validSeconds = 0;
+            STATE.steady.breakDuration = 0;
+            STATE.steady.errorLoggedForBreak = false;
+            pickRandomDistortions();
+
+            poseCardsWrapper.classList.remove('hidden');
+            renderPoseCardCanvases();
         } else if (STATE.currentGame === 'proactive') {
-            STATE.proactive.reachDistFactor = GAME_CONFIG.proactive[STATE.currentStage].reach;
-            STATE.proactive.lifeSpan = GAME_CONFIG.proactive[STATE.currentStage].span;
+            const cfg = GAME_CONFIG.proactive[STATE.currentStage];
+            STATE.proactive.targets = [];
+            STATE.proactive.initialAnkles = null;
+            STATE.proactive.reachDistFactor = cfg.reach;
+            STATE.proactive.lifeSpan = cfg.span;
+            if (cfg.cognitiveLoad) {
+                cognitiveBanner.innerText = 'แตะเฉพาะจุด "สีเหลือง" เท่านั้น!';
+                cognitiveBanner.classList.remove('hidden');
+            }
         } else if (STATE.currentGame === 'reactive') {
-            STATE.reactive.speedFactor = GAME_CONFIG.reactive[STATE.currentStage].speed;
+            const cfg = GAME_CONFIG.reactive[STATE.currentStage];
+            STATE.reactive.items = [];
+            STATE.reactive.speedFactor = cfg.speed;
+            STATE.reactive.spawnTimer = 1.6;
+            if (cfg.cognitiveLoad) {
+                cognitiveBanner.innerText = 'รับเฉพาะวัตถุ "สีเหลือง" เท่านั้น! (หลบสีแดง)';
+                cognitiveBanner.classList.remove('hidden');
+            }
         }
 
         updateHUD();
@@ -447,6 +652,7 @@
 
     function resumeGame() {
         STATE.isPaused = false;
+        STATE.lastFrameTime = performance.now();
         screenPause.classList.add('hidden');
     }
 
@@ -454,6 +660,10 @@
         clearInterval(STATE.timerInterval);
         STATE.isGameActive = false;
         STATE.isPaused = false;
+        gameCanvas.style.filter = 'none';
+        gameCanvas.style.transform = 'scaleX(-1)';
+        poseCardsWrapper.classList.add('hidden');
+        cognitiveBanner.classList.add('hidden');
         screenPause.classList.add('hidden');
         screenResult.classList.add('hidden');
         hud.classList.add('hidden');
@@ -465,7 +675,32 @@
     function endGame() {
         clearInterval(STATE.timerInterval);
         STATE.isGameActive = false;
-        document.getElementById('res-score').innerText = STATE.score;
+        gameCanvas.style.filter = 'none';
+        gameCanvas.style.transform = 'scaleX(-1)';
+        poseCardsWrapper.classList.add('hidden');
+        cognitiveBanner.classList.add('hidden');
+
+        let pct = 0;
+        let detailStr = '';
+
+        if (STATE.currentGame === 'steady') {
+            const validSec = Math.min(300, Math.round(STATE.steady.validSeconds));
+            pct = Math.round((validSec / 300) * 100);
+            detailStr = `เวลาทรงตัวที่ถูกต้อง: ${validSec} / 300 วินาที`;
+        } else if (STATE.currentGame === 'proactive') {
+            const total = Math.max(1, STATE.totalOpportunities);
+            const cleanScore = Math.max(0, STATE.score);
+            pct = Math.round((cleanScore / total) * 100);
+            detailStr = `แตะสำเร็จ: ${cleanScore} / ${STATE.totalOpportunities} เป้าหมาย`;
+        } else if (STATE.currentGame === 'reactive') {
+            const total = Math.max(1, STATE.totalOpportunities);
+            const cleanScore = Math.max(0, STATE.score);
+            pct = Math.round((cleanScore / total) * 100);
+            detailStr = `รับสำเร็จ: ${cleanScore} / ${STATE.totalOpportunities} ชิ้น`;
+        }
+
+        document.getElementById('res-percent').innerText = `${pct}%`;
+        document.getElementById('res-detail').innerText = detailStr;
         document.getElementById('res-errors').innerText = STATE.errors;
         hud.classList.add('hidden');
         btnPause.classList.add('hidden');
@@ -473,7 +708,11 @@
     }
 
     function updateHUD() {
-        document.getElementById('hud-score').innerText = STATE.score;
+        if (STATE.currentGame === 'steady') {
+            document.getElementById('hud-score').innerText = `${Math.round(STATE.steady.validSeconds)}s`;
+        } else {
+            document.getElementById('hud-score').innerText = Math.max(0, STATE.score);
+        }
         document.getElementById('hud-errors').innerText = STATE.errors;
         const m = Math.floor(STATE.timeRemaining / 60).toString().padStart(2, '0');
         const s = (STATE.timeRemaining % 60).toString().padStart(2, '0');
@@ -482,10 +721,9 @@
 
     function triggerFeedback(type) {
         feedbackOverlay.className = type === 'success' ? 'flash-success' : 'flash-error';
-        setTimeout(() => { feedbackOverlay.className = ''; }, 450);
+        setTimeout(() => { feedbackOverlay.className = ''; }, 400);
     }
 
-    // All games use Portrait orientation
     function checkOrientation() {
         if (!STATE.currentGame) return;
         const isLandscape = window.innerWidth > window.innerHeight;
@@ -507,8 +745,212 @@
         return Math.hypot(p1.x - p2.x, p1.y - p2.y);
     }
 
+    // --- SILHOUETTE RENDERER FOR GAME 1 CARDS ---
+    function drawPoseSilhouetteCard(canvasEl, poseObj, withCues) {
+        const ctx = canvasEl.getContext('2d');
+        const w = canvasEl.width;
+        const h = canvasEl.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const scale = h / 220;
+        const headY = 36 * scale;
+        const shoulderY = 64 * scale;
+        const hipY = 122 * scale;
+        const floorY = 198 * scale;
+
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(16, floorY + 5);
+        ctx.lineTo(w - 16, floorY + 5);
+        ctx.stroke();
+
+        if (poseObj.stance.startsWith('tandem')) {
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = withCues ? '#FBBF24' : 'rgba(56, 189, 248, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, hipY + 8);
+            ctx.lineTo(cx, floorY + 10);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        const lShoulder = { x: cx - 22 * scale, y: shoulderY };
+        const rShoulder = { x: cx + 22 * scale, y: shoulderY };
+        const lHip = { x: cx - 14 * scale, y: hipY };
+        const rHip = { x: cx + 14 * scale, y: hipY };
+
+        let lElbow, lWrist, rElbow, rWrist;
+        if (poseObj.arms === 't_both' || poseObj.arms === 't_left') {
+            lElbow = { x: cx - 48 * scale, y: shoulderY };
+            lWrist = { x: cx - 72 * scale, y: shoulderY };
+        } else if (poseObj.arms === 'hips') {
+            lElbow = { x: cx - 35 * scale, y: shoulderY + 28 * scale };
+            lWrist = { x: cx - 16 * scale, y: hipY - 2 * scale };
+        } else {
+            lElbow = { x: cx - 26 * scale, y: shoulderY + 30 * scale };
+            lWrist = { x: cx - 28 * scale, y: hipY + 22 * scale };
+        }
+
+        if (poseObj.arms === 't_both' || poseObj.arms === 't_right') {
+            rElbow = { x: cx + 48 * scale, y: shoulderY };
+            rWrist = { x: cx + 72 * scale, y: shoulderY };
+        } else if (poseObj.arms === 'hips') {
+            rElbow = { x: cx + 35 * scale, y: shoulderY + 28 * scale };
+            rWrist = { x: cx + 16 * scale, y: hipY - 2 * scale };
+        } else {
+            rElbow = { x: cx + 26 * scale, y: shoulderY + 30 * scale };
+            rWrist = { x: cx + 28 * scale, y: hipY + 22 * scale };
+        }
+
+        let lKnee, lAnkle, rKnee, rAnkle, frontFoot = null;
+        if (poseObj.stance === 'double') {
+            lKnee = { x: cx - 15 * scale, y: 160 * scale };
+            lAnkle = { x: cx - 15 * scale, y: floorY };
+            rKnee = { x: cx + 15 * scale, y: 160 * scale };
+            rAnkle = { x: cx + 15 * scale, y: floorY };
+        } else if (poseObj.stance === 'tandem_r') {
+            lKnee = { x: cx - 3 * scale, y: 154 * scale };
+            lAnkle = { x: cx - 2 * scale, y: floorY - 12 * scale };
+            rKnee = { x: cx + 3 * scale, y: 164 * scale };
+            rAnkle = { x: cx + 2 * scale, y: floorY + 4 * scale };
+            frontFoot = 'R';
+        } else if (poseObj.stance === 'tandem_l') {
+            rKnee = { x: cx + 3 * scale, y: 154 * scale };
+            rAnkle = { x: cx + 2 * scale, y: floorY - 12 * scale };
+            lKnee = { x: cx - 3 * scale, y: 164 * scale };
+            lAnkle = { x: cx - 2 * scale, y: floorY + 4 * scale };
+            frontFoot = 'L';
+        } else if (poseObj.stance === 'single_r') {
+            rKnee = { x: cx + 12 * scale, y: 160 * scale };
+            rAnkle = { x: cx + 12 * scale, y: floorY };
+            lKnee = { x: cx - 26 * scale, y: 146 * scale };
+            lAnkle = { x: cx - 14 * scale, y: 170 * scale };
+        } else if (poseObj.stance === 'single_l') {
+            lKnee = { x: cx - 12 * scale, y: 160 * scale };
+            lAnkle = { x: cx - 12 * scale, y: floorY };
+            rKnee = { x: cx + 26 * scale, y: 146 * scale };
+            rAnkle = { x: cx + 14 * scale, y: 170 * scale };
+        }
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = '#38BDF8';
+        ctx.strokeStyle = '#38BDF8';
+
+        ctx.beginPath();
+        ctx.moveTo(lShoulder.x, lShoulder.y);
+        ctx.lineTo(rShoulder.x, rShoulder.y);
+        ctx.lineTo(rHip.x, rHip.y);
+        ctx.lineTo(lHip.x, lHip.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 9 * scale;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, headY, 13 * scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        function drawLimb(p1, p2, p3, col, lw) {
+            ctx.strokeStyle = col;
+            ctx.lineWidth = lw * scale;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.stroke();
+        }
+
+        if (frontFoot === 'R') {
+            drawLimb(lHip, lKnee, lAnkle, '#0284C7', 10);
+            drawLimb(rHip, rKnee, rAnkle, '#38BDF8', 11);
+        } else if (frontFoot === 'L') {
+            drawLimb(rHip, rKnee, rAnkle, '#0284C7', 10);
+            drawLimb(lHip, lKnee, lAnkle, '#38BDF8', 11);
+        } else {
+            drawLimb(lHip, lKnee, lAnkle, '#38BDF8', 11);
+            drawLimb(rHip, rKnee, rAnkle, '#38BDF8', 11);
+        }
+
+        ctx.fillStyle = frontFoot === 'L' ? '#FBBF24' : '#38BDF8';
+        ctx.beginPath();
+        ctx.ellipse(lAnkle.x, lAnkle.y + 2, 7 * scale, 4 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = frontFoot === 'R' ? '#FBBF24' : '#38BDF8';
+        ctx.beginPath();
+        ctx.ellipse(rAnkle.x, rAnkle.y + 2, 7 * scale, 4 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawLimb(lShoulder, lElbow, lWrist, '#38BDF8', 9);
+        drawLimb(rShoulder, rElbow, rWrist, '#38BDF8', 9);
+
+        if (withCues) {
+            const cuePts = [];
+            if (poseObj.arms === 't_both' || poseObj.arms === 't_left' || poseObj.arms === 'hips') cuePts.push(lWrist);
+            if (poseObj.arms === 't_both' || poseObj.arms === 't_right' || poseObj.arms === 'hips') cuePts.push(rWrist);
+            if (poseObj.stance === 'single_r') cuePts.push(lAnkle);
+            if (poseObj.stance === 'single_l') cuePts.push(rAnkle);
+            if (poseObj.stance === 'tandem_r') cuePts.push(rAnkle);
+            if (poseObj.stance === 'tandem_l') cuePts.push(lAnkle);
+
+            cuePts.forEach(pt => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#10B981';
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+    }
+
+    function renderPoseCardCanvases() {
+        const showCues = GAME_CONFIG.steady[STATE.currentStage]?.visualCues || false;
+        drawPoseSilhouetteCard(document.getElementById('current-pose-canvas'), STATE.steady.currentPose, showCues);
+        drawPoseSilhouetteCard(document.getElementById('next-pose-canvas'), STATE.steady.nextPose, showCues);
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, color) {
+        const headlen = 16;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 15) return;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
     function onPoseResults(results) {
-        // Calculate aspect ratio cover dimensions to prevent vertical/horizontal stretching
+        const now = performance.now();
+        const dt = Math.min(0.1, (now - STATE.lastFrameTime) / 1000 || 0.033);
+        STATE.lastFrameTime = now;
+
         const imgW = results.image.width || 720;
         const imgH = results.image.height || 1280;
         const imgAspect = imgW / imgH;
@@ -528,80 +970,365 @@
         }
         renderParams = { drawW, drawH, offsetX, offsetY };
 
-        // Draw video frame onto mirrored game Canvas preserving natural aspect ratio
+        // Draw video frame onto mirrored game Canvas
         gCtx.save();
         gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-        gCtx.drawImage(results.image, offsetX, offsetY, drawW, drawH);
+
+        // Apply Wave Distortion if active in Very Hard Game 1
+        if (STATE.isGameActive && !STATE.isPaused && STATE.currentGame === 'steady' &&
+            STATE.currentStage === 'very_hard' && STATE.steady.activeDistortion === 'wave') {
+            const slices = 24;
+            const sliceH = drawH / slices;
+            const srcSliceH = imgH / slices;
+            const phase = now * 0.006;
+            for (let i = 0; i < slices; i++) {
+                const waveOffset = Math.sin(phase + i * 0.45) * 18;
+                gCtx.drawImage(
+                    results.image,
+                    0, i * srcSliceH, imgW, srcSliceH,
+                    offsetX + waveOffset, offsetY + i * sliceH, drawW, sliceH + 1
+                );
+            }
+        } else {
+            gCtx.drawImage(results.image, offsetX, offsetY, drawW, drawH);
+        }
         gCtx.restore();
 
-        // Clear un-mirrored UI Overlay Canvas
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
 
         if (!results.poseLandmarks) return;
         STATE.poseLandmarks = results.poseLandmarks;
 
         if (STATE.isGameActive && !STATE.isPaused) {
-            if (STATE.currentGame === 'steady') runSteadyStateGame(results.poseLandmarks);
-            else if (STATE.currentGame === 'proactive') runProactiveGame(results.poseLandmarks);
-            else if (STATE.currentGame === 'reactive') runReactiveGame(results.poseLandmarks);
+            if (STATE.currentGame === 'steady') runSteadyStateGame(results.poseLandmarks, dt, now);
+            else if (STATE.currentGame === 'proactive') runProactiveGame(results.poseLandmarks, dt);
+            else if (STATE.currentGame === 'reactive') runReactiveGame(results.poseLandmarks, dt);
         }
     }
 
-    function runSteadyStateGame(lm) {
-        const currentPose = POSES[STATE.steady.targetPoseIdx];
-        let anglesMatched = true;
+    // =========================================================================
+    // GAME 1: "เลียนแบบท่าทาง" (STEADY-STATE BALANCE)
+    // =========================================================================
+    function evaluatePoseBiomechanics(lm, poseObj) {
+        const lShoulder = lm[11], rShoulder = lm[12];
+        const lElbow = lm[13], rElbow = lm[14];
+        const lWrist = lm[15], rWrist = lm[16];
+        const lHip = lm[23], rHip = lm[24];
+        const lKnee = lm[25], rKnee = lm[26];
+        const lAnkle = lm[27], rAnkle = lm[28];
 
-        // Convert normalized landmarks to pixel space for true aspect-corrected angle calculation
-        function getPixelPt(keypoint) {
-            return {
-                x: (1 - keypoint.x) * renderParams.drawW,
-                y: keypoint.y * renderParams.drawH
-            };
-        }
+        const shoulderWidth = Math.max(0.08, getDistance(lShoulder, rShoulder));
+        const torsoLen = Math.max(0.15, getDistance(lShoulder, lHip));
 
-        for (let rule of currentPose.angles) {
-            const p1 = getPixelPt(lm[rule.j1]), p2 = getPixelPt(lm[rule.j2]), p3 = getPixelPt(lm[rule.j3]);
-            const actual = calculateAngle(p1, p2, p3);
-            if (Math.abs(actual - rule.target) > 15) { // ±15 degree tolerance
-                anglesMatched = false;
-                break;
-            }
-        }
+        // Note: MediaPipe landmarks correspond directly to anatomical left/right
+        // On mirrored screen, user's anatomical left is screen-left (higher normX)
+        const issues = []; // { limbPt, targetScreenPt }
 
-        // Render instruction text (Direct un-mirrored rendering on uiCanvas)
-        uiCtx.save();
-        uiCtx.fillStyle = anglesMatched ? "#10B981" : "#FFFFFF";
-        uiCtx.font = "bold 26px sans-serif";
-        uiCtx.textAlign = "center";
-        uiCtx.fillText(`ท่าทาง: ${currentPose.name}`, uiCanvas.width / 2, 100);
-        
-        // Progress hold bar
-        if (anglesMatched) {
-            STATE.steady.holdTimer += 0.033;
-            const progress = Math.min(STATE.steady.holdTimer / STATE.steady.targetHoldTime, 1.0);
-            
-            uiCtx.fillStyle = "#10B981";
-            uiCtx.fillRect(uiCanvas.width / 2 - 150, 120, 300 * progress, 16);
+        // 1. Evaluate Arms
+        const lShoulderAngle = calculateAngle(lHip, lShoulder, lElbow);
+        const lElbowAngle = calculateAngle(lShoulder, lElbow, lWrist);
+        const rShoulderAngle = calculateAngle(rHip, rShoulder, rElbow);
+        const rElbowAngle = calculateAngle(rShoulder, rElbow, rWrist);
 
-            if (STATE.steady.holdTimer >= STATE.steady.targetHoldTime) {
-                STATE.score += 1;
-                triggerFeedback('success');
-                STATE.steady.holdTimer = 0;
-                STATE.steady.targetPoseIdx = (STATE.steady.targetPoseIdx + 1) % POSES.length;
-                updateHUD();
-            }
+        let leftArmOk = true;
+        let rightArmOk = true;
+        let leftArmTarget = { x: lShoulder.x + shoulderWidth * 1.3, y: lShoulder.y };
+        let rightArmTarget = { x: rShoulder.x - shoulderWidth * 1.3, y: rShoulder.y };
+
+        if (poseObj.arms === 't_both' || poseObj.arms === 't_left') {
+            leftArmOk = Math.abs(lShoulderAngle - 90) <= 22 && lElbowAngle >= 145;
+            leftArmTarget = { x: Math.min(0.92, lShoulder.x + torsoLen * 0.9), y: lShoulder.y };
+        } else if (poseObj.arms === 'hips') {
+            leftArmOk = getDistance(lWrist, lHip) <= shoulderWidth * 0.85;
+            leftArmTarget = { x: lHip.x + shoulderWidth * 0.15, y: lHip.y };
         } else {
-            STATE.steady.holdTimer = Math.max(0, STATE.steady.holdTimer - 0.05);
+            // Relaxed at side
+            leftArmOk = lShoulderAngle <= 35;
+            leftArmTarget = { x: lHip.x + shoulderWidth * 0.25, y: lHip.y + torsoLen * 0.3 };
         }
+
+        if (poseObj.arms === 't_both' || poseObj.arms === 't_right') {
+            rightArmOk = Math.abs(rShoulderAngle - 90) <= 22 && rElbowAngle >= 145;
+            rightArmTarget = { x: Math.max(0.08, rShoulder.x - torsoLen * 0.9), y: rShoulder.y };
+        } else if (poseObj.arms === 'hips') {
+            rightArmOk = getDistance(rWrist, rHip) <= shoulderWidth * 0.85;
+            rightArmTarget = { x: rHip.x - shoulderWidth * 0.15, y: rHip.y };
+        } else {
+            rightArmOk = rShoulderAngle <= 35;
+            rightArmTarget = { x: rHip.x - shoulderWidth * 0.25, y: rHip.y + torsoLen * 0.3 };
+        }
+
+        if (!leftArmOk) issues.push({ current: lWrist, target: leftArmTarget });
+        if (!rightArmOk) issues.push({ current: rWrist, target: rightArmTarget });
+
+        // 2. Evaluate Stance / Legs
+        const ankleXDiff = Math.abs(lAnkle.x - rAnkle.x);
+        const ankleYDiff = lAnkle.y - rAnkle.y; // Positive if Left ankle is lower on screen (in front)
+
+        let legsOk = true;
+        let legIssuePt = null;
+        let legTargetPt = null;
+
+        if (poseObj.stance === 'double') {
+            // Feet roughly shoulder-width apart and level
+            legsOk = Math.abs(ankleYDiff) < torsoLen * 0.25 && ankleXDiff >= shoulderWidth * 0.4;
+            if (!legsOk) {
+                legIssuePt = rAnkle;
+                legTargetPt = { x: rHip.x, y: Math.max(lAnkle.y, rAnkle.y) };
+            }
+        } else if (poseObj.stance.startsWith('tandem')) {
+            // Narrow base of support (feet close to vertical centerline) + subtle vertical offset allowance
+            const narrowBase = ankleXDiff <= shoulderWidth * 0.75;
+            const subtleOffsetOk = poseObj.stance === 'tandem_r'
+                ? (rAnkle.y >= lAnkle.y - torsoLen * 0.08)
+                : (lAnkle.y >= rAnkle.y - torsoLen * 0.08);
+            legsOk = narrowBase && subtleOffsetOk;
+            if (!legsOk) {
+                const frontAnkle = poseObj.stance === 'tandem_r' ? rAnkle : lAnkle;
+                const midX = (lHip.x + rHip.x) / 2;
+                legIssuePt = frontAnkle;
+                legTargetPt = { x: midX, y: Math.max(lAnkle.y, rAnkle.y) + 0.03 };
+            }
+        } else if (poseObj.stance === 'single_r') {
+            // Standing on Right leg; Left ankle lifted higher than Right ankle
+            const lifted = (rAnkle.y - lAnkle.y) >= torsoLen * 0.16;
+            legsOk = lifted;
+            if (!legsOk) {
+                legIssuePt = lAnkle;
+                legTargetPt = { x: lAnkle.x, y: rAnkle.y - torsoLen * 0.25 };
+            }
+        } else if (poseObj.stance === 'single_l') {
+            // Standing on Left leg; Right ankle lifted higher than Left ankle
+            const lifted = (lAnkle.y - rAnkle.y) >= torsoLen * 0.16;
+            legsOk = lifted;
+            if (!legsOk) {
+                legIssuePt = rAnkle;
+                legTargetPt = { x: rAnkle.x, y: lAnkle.y - torsoLen * 0.25 };
+            }
+        }
+
+        if (!legsOk && legIssuePt && legTargetPt) {
+            issues.push({ current: legIssuePt, target: legTargetPt });
+        }
+
+        return {
+            isValid: issues.length === 0,
+            issues,
+            cueTargets: [
+                { pt: lWrist, ok: leftArmOk, target: leftArmTarget },
+                { pt: rWrist, ok: rightArmOk, target: rightArmTarget },
+                ...(legTargetPt ? [{ pt: legIssuePt, ok: legsOk, target: legTargetPt }] : [])
+            ]
+        };
+    }
+
+    function runSteadyStateGame(lm, dt, now) {
+        const cfg = GAME_CONFIG.steady[STATE.currentStage];
+        const st = STATE.steady;
+        st.poseElapsed += dt;
+
+        // Check Pose Transition
+        if (st.poseElapsed >= st.targetDuration) {
+            st.currentPose = st.nextPose;
+            st.nextPose = drawNextPoseFromBag();
+            st.poseElapsed = 0;
+            st.breakDuration = 0;
+            st.errorLoggedForBreak = false;
+            pickRandomDistortions();
+            nextPoseCard.classList.add('hidden');
+            renderPoseCardCanvases();
+            triggerFeedback('success');
+        }
+
+        // Show Next Pose Card 3 seconds before current pose finishes
+        const timeLeftInPose = Math.max(0, st.targetDuration - st.poseElapsed);
+        if (timeLeftInPose <= 3.0) {
+            nextPoseCard.classList.remove('hidden');
+        } else {
+            nextPoseCard.classList.add('hidden');
+        }
+
+        // Sensory-Conflict Visual Distortions in "ยากมาก" at 10s and 20s (each lasting 4 seconds)
+        st.activeDistortion = null;
+        if (cfg.sensoryConflict) {
+            if (st.poseElapsed >= 10 && st.poseElapsed <= 14) {
+                st.activeDistortion = st.distortion10;
+            } else if (st.poseElapsed >= 20 && st.poseElapsed <= 24) {
+                st.activeDistortion = st.distortion20;
+            }
+        }
+
+        if (st.activeDistortion === 'blur') {
+            gameCanvas.style.filter = 'blur(8px)';
+            gameCanvas.style.transform = 'scaleX(-1)';
+        } else if (st.activeDistortion === 'twirl') {
+            // Bounded +/- 20 degrees gentle tilt/swirl to prevent motion sickness
+            const deg = Math.sin(now * 0.003) * 20;
+            gameCanvas.style.filter = 'none';
+            gameCanvas.style.transform = `scaleX(-1) scale(1.12) rotate(${deg.toFixed(1)}deg)`;
+        } else {
+            gameCanvas.style.filter = 'none';
+            gameCanvas.style.transform = 'scaleX(-1)';
+        }
+
+        // Evaluate Biomechanical Posture
+        const evalRes = evaluatePoseBiomechanics(lm, st.currentPose);
+        const inSetupGrace = st.poseElapsed <= 2.5; // 2.5s initial setup grace window
+
+        if (evalRes.isValid) {
+            st.validSeconds += dt;
+            st.breakDuration = 0;
+            st.errorLoggedForBreak = false;
+        } else {
+            if (inSetupGrace) {
+                // During initial 2.5s setup window, don't log errors; count score once settled or pause gently
+                st.breakDuration = 0;
+            } else {
+                st.breakDuration += dt;
+                // Misplacements <= 1.0s do not penalize score or count as error
+                if (st.breakDuration <= 1.0) {
+                    st.validSeconds += dt;
+                } else {
+                    // Break > 1.0s pauses score until all limbs return to valid pose & logs +1 error once per break event
+                    if (!st.errorLoggedForBreak) {
+                        STATE.errors += 1;
+                        st.errorLoggedForBreak = true;
+                        triggerFeedback('error');
+                    }
+                }
+            }
+        }
+
+        updateHUD();
+
+        // Render Visual Cues in "ง่ายมาก" (Very Easy)
+        if (cfg.visualCues) {
+            evalRes.cueTargets.forEach(item => {
+                const targetScr = normToScreen(item.target.x, item.target.y);
+                const currScr = normToScreen(item.pt.x, item.pt.y);
+
+                uiCtx.save();
+                uiCtx.beginPath();
+                uiCtx.arc(targetScr.x, targetScr.y, 26, 0, Math.PI * 2);
+                uiCtx.fillStyle = item.ok ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.4)';
+                uiCtx.fill();
+                uiCtx.lineWidth = 4;
+                uiCtx.strokeStyle = item.ok ? '#10B981' : '#EF4444';
+                uiCtx.stroke();
+                uiCtx.restore();
+
+                if (!item.ok) {
+                    drawArrow(uiCtx, currScr.x, currScr.y, targetScr.x, targetScr.y, '#EF4444');
+                }
+            });
+        }
+
+        // Bottom Pose Status & Progress Bar
+        const boxW = Math.min(360, uiCanvas.width - 32);
+        const boxX = (uiCanvas.width - boxW) / 2;
+        const boxY = uiCanvas.height - 95;
+
+        uiCtx.save();
+        uiCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        uiCtx.beginPath();
+        uiCtx.roundRect(boxX, boxY, boxW, 72, 16);
+        uiCtx.fill();
+
+        uiCtx.font = 'bold 18px sans-serif';
+        uiCtx.textAlign = 'center';
+        if (evalRes.isValid) {
+            uiCtx.fillStyle = '#10B981';
+            uiCtx.fillText(`ท่าทางถูกต้อง! (${st.currentPose.th})`, uiCanvas.width / 2, boxY + 26);
+        } else if (inSetupGrace) {
+            uiCtx.fillStyle = '#FBBF24';
+            uiCtx.fillText(`จัดท่าทาง: ${st.currentPose.th}`, uiCanvas.width / 2, boxY + 26);
+        } else {
+            uiCtx.fillStyle = '#EF4444';
+            uiCtx.fillText(`กรุณาปรับท่าให้ตรงตามภาพ!`, uiCanvas.width / 2, boxY + 26);
+        }
+
+        const pctProgress = Math.min(1, st.poseElapsed / st.targetDuration);
+        uiCtx.fillStyle = '#334155';
+        uiCtx.beginPath();
+        uiCtx.roundRect(boxX + 16, boxY + 40, boxW - 32, 14, 8);
+        uiCtx.fill();
+
+        uiCtx.fillStyle = evalRes.isValid ? '#10B981' : '#F59E0B';
+        uiCtx.beginPath();
+        uiCtx.roundRect(boxX + 16, boxY + 40, (boxW - 32) * pctProgress, 14, 8);
+        uiCtx.fill();
         uiCtx.restore();
     }
 
-    function runProactiveGame(lm) {
-        const lAnkle = lm[27], rAnkle = lm[28];
+    // =========================================================================
+    // GAME 2: "เอื้อมมือแตะจุด" (PROACTIVE BALANCE)
+    // =========================================================================
+    function spawnProactiveWave(lm) {
+        const cfg = GAME_CONFIG.proactive[STATE.currentStage];
         const lShoulder = lm[11], rShoulder = lm[12];
         const lWrist = lm[15], rWrist = lm[16];
 
-        // Foot movement/error detection
+        // Midpoint between left and right shoulder keypoints
+        const midShoulder = {
+            x: (lShoulder.x + rShoulder.x) / 2,
+            y: (lShoulder.y + rShoulder.y) / 2
+        };
+
+        // Lesser arm length between left and right arms
+        const leftArmLen = getDistance(lShoulder, lWrist);
+        const rightArmLen = getDistance(rShoulder, rWrist);
+        const minArmLen = Math.max(0.12, Math.min(leftArmLen, rightArmLen));
+        const radius = minArmLen * cfg.reach;
+
+        // Helper to generate point along upward-arching semicircle above shoulders
+        // Angle between 15 deg and 165 deg (excluding central 75-105 deg head zone so targets don't cover face)
+        function sampleReachPoint(existingPts) {
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const side = Math.random() < 0.5 ? 'left' : 'right';
+                // Left arc: 15° to 70°; Right arc: 110° to 165°
+                const deg = side === 'left'
+                    ? (15 + Math.random() * 55)
+                    : (110 + Math.random() * 55);
+                const rad = (deg * Math.PI) / 180;
+
+                let normX = midShoulder.x + Math.cos(rad) * radius;
+                let normY = midShoulder.y - Math.sin(rad) * radius; // Upward arch (-Y in image coords)
+
+                normX = Math.max(0.12, Math.min(0.88, normX));
+                normY = Math.max(0.16, Math.min(midShoulder.y - 0.02, normY));
+
+                const tooClose = existingPts.some(p => getDistance(p, { x: normX, y: normY }) < 0.14);
+                if (!tooClose) return { normX, normY };
+            }
+            return { normX: Math.max(0.15, Math.min(0.85, midShoulder.x + (Math.random() < 0.5 ? 0.25 : -0.25))), normY: Math.max(0.2, midShoulder.y - 0.15) };
+        }
+
+        const newTargets = [];
+        // Always spawn exactly 1 Yellow valid target
+        const yellowPos = sampleReachPoint([]);
+        newTargets.push({ ...yellowPos, type: 'yellow', createdAt: performance.now() });
+        STATE.totalOpportunities += 1;
+
+        // In "ยากมาก" (Very Hard), spawn up to 2 Red/Green distractors (max 3 dots total)
+        if (cfg.cognitiveLoad) {
+            const distractorCount = 1 + Math.floor(Math.random() * 2); // 1 or 2 distractors
+            const colors = ['red', 'green'];
+            for (let i = 0; i < distractorCount; i++) {
+                const pos = sampleReachPoint(newTargets.map(t => ({ x: t.normX, y: t.normY })));
+                const dColor = colors[Math.floor(Math.random() * colors.length)];
+                newTargets.push({ ...pos, type: dColor, createdAt: performance.now() });
+            }
+        }
+
+        STATE.proactive.targets = newTargets;
+    }
+
+    function runProactiveGame(lm, dt) {
+        const cfg = GAME_CONFIG.proactive[STATE.currentStage];
+        const lAnkle = lm[27], rAnkle = lm[28];
+        const lWrist = lm[15], rWrist = lm[16];
+
+        // Foot movement detection (> 25% of baseline stance width)
         if (!STATE.proactive.initialAnkles) {
             STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } };
         } else {
@@ -613,111 +1340,195 @@
                 STATE.errors += 1;
                 triggerFeedback('error');
                 STATE.proactive.initialAnkles = { l: { ...lAnkle }, r: { ...rAnkle } };
+                STATE.proactive.targets = []; // Invalidate current reach wave
                 updateHUD();
+                return;
             }
         }
 
-        // Spawn Target Dot relative to shoulder reach
-        if (!STATE.proactive.targetDot) {
-            const armLen = getDistance(lShoulder, lWrist);
-            const reachRadius = armLen * STATE.proactive.reachDistFactor;
-            
-            // Random angle across upper reach arc
-            const angle = (Math.random() * Math.PI) - (Math.PI / 2); 
-            let targetNormX = lShoulder.x + Math.cos(angle) * reachRadius;
-            let targetNormY = lShoulder.y + Math.sin(angle) * reachRadius;
-
-            // Constrain target within canvas boundaries
-            targetNormX = Math.max(0.15, Math.min(0.85, targetNormX));
-            targetNormY = Math.max(0.2, Math.min(0.7, targetNormY));
-
-            STATE.proactive.targetDot = { normX: targetNormX, normY: targetNormY, createdAt: Date.now() };
+        if (STATE.proactive.targets.length === 0) {
+            spawnProactiveWave(lm);
         }
 
-        const dot = STATE.proactive.targetDot;
-        const targetPos = normToScreen(dot.normX, dot.normY);
-
-        // Render target dot
-        uiCtx.beginPath();
-        uiCtx.arc(targetPos.x, targetPos.y, 36, 0, 2 * Math.PI);
-        uiCtx.fillStyle = "#FBBF24";
-        uiCtx.fill();
-        uiCtx.lineWidth = 4;
-        uiCtx.strokeStyle = "#FFFFFF";
-        uiCtx.stroke();
-
-        // Calculate user wrist positions in screen space
         const wrist1 = normToScreen(lWrist.x, lWrist.y);
         const wrist2 = normToScreen(rWrist.x, rWrist.y);
+        const now = performance.now();
 
-        if (Math.hypot(wrist1.x - targetPos.x, wrist1.y - targetPos.y) < 55 || Math.hypot(wrist2.x - targetPos.x, wrist2.y - targetPos.y) < 55) {
-            STATE.score += 1;
-            triggerFeedback('success');
-            STATE.proactive.targetDot = null;
-            updateHUD();
-        } else if ((Date.now() - dot.createdAt) / 1000 > STATE.proactive.lifeSpan) {
-            STATE.errors += 1;
-            triggerFeedback('error');
-            STATE.proactive.targetDot = null;
+        let waveResolved = false;
+
+        for (let i = 0; i < STATE.proactive.targets.length; i++) {
+            const dot = STATE.proactive.targets[i];
+            const targetPos = normToScreen(dot.normX, dot.normY);
+
+            // Render Dot
+            uiCtx.save();
+            uiCtx.beginPath();
+            uiCtx.arc(targetPos.x, targetPos.y, 34, 0, 2 * Math.PI);
+            uiCtx.fillStyle = dot.type === 'yellow' ? '#FBBF24' : (dot.type === 'red' ? '#EF4444' : '#10B981');
+            uiCtx.fill();
+            uiCtx.lineWidth = 4;
+            uiCtx.strokeStyle = '#FFFFFF';
+            uiCtx.stroke();
+            uiCtx.restore();
+
+            // Visual Cue in "ง่ายมาก": Green arrow from closest hand to yellow target
+            if (cfg.visualCue && dot.type === 'yellow') {
+                const d1 = Math.hypot(wrist1.x - targetPos.x, wrist1.y - targetPos.y);
+                const d2 = Math.hypot(wrist2.x - targetPos.x, wrist2.y - targetPos.y);
+                const closerWrist = d1 <= d2 ? wrist1 : wrist2;
+                drawArrow(uiCtx, closerWrist.x, closerWrist.y, targetPos.x, targetPos.y, '#10B981');
+            }
+
+            // Check Touch Collision
+            const touched = Math.hypot(wrist1.x - targetPos.x, wrist1.y - targetPos.y) < 52 ||
+                            Math.hypot(wrist2.x - targetPos.x, wrist2.y - targetPos.y) < 52;
+
+            if (touched) {
+                if (dot.type === 'yellow') {
+                    STATE.score += 1;
+                    triggerFeedback('success');
+                } else {
+                    // Touched Red or Green distractor in Very Hard mode -> deduct score & log error
+                    STATE.score -= 1;
+                    STATE.errors += 1;
+                    triggerFeedback('error');
+                }
+                waveResolved = true;
+                break;
+            }
+        }
+
+        // Check Expiration
+        if (!waveResolved && STATE.proactive.targets.length > 0) {
+            const elapsed = (now - STATE.proactive.targets[0].createdAt) / 1000;
+            if (elapsed > STATE.proactive.lifeSpan) {
+                STATE.errors += 1;
+                triggerFeedback('error');
+                waveResolved = true;
+            }
+        }
+
+        if (waveResolved) {
+            STATE.proactive.targets = [];
             updateHUD();
         }
     }
 
-    function runReactiveGame(lm) {
+    // =========================================================================
+    // GAME 3: "เก็บของจากฟ้า" (REACTIVE BALANCE)
+    // =========================================================================
+    function runReactiveGame(lm, dt) {
+        const cfg = GAME_CONFIG.reactive[STATE.currentStage];
         const lShoulder = lm[11], rShoulder = lm[12];
         const shoulderCenter = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
 
-        // Position basket directly above head center in screen coordinates with aspect scaling
+        // Position flat horizontal catcher bar above head center
         const shoulderPos = normToScreen(shoulderCenter.x, shoulderCenter.y);
-        const basketX = shoulderPos.x;
-        const basketY = shoulderPos.y - 120;
-        const basketWidth = 130;
+        const barCenterX = shoulderPos.x;
+        const barTopY = Math.max(90, shoulderPos.y - 125);
+        const barWidth = 110; // Matches previous sphere diameter width
+        const barHeight = 26; // ~5 cm flat horizontal bar height
 
-        // Render Basket
-        uiCtx.fillStyle = "#D97706";
+        // Render Flat Horizontal Catcher Bar
+        uiCtx.save();
+        uiCtx.fillStyle = '#38BDF8';
         uiCtx.beginPath();
-        uiCtx.roundRect(basketX - basketWidth / 2, basketY, basketWidth, 28, [0, 0, 14, 14]);
+        uiCtx.roundRect(barCenterX - barWidth / 2, barTopY, barWidth, barHeight, 8);
         uiCtx.fill();
-        uiCtx.strokeStyle = "#FFFFFF";
+        uiCtx.strokeStyle = '#FFFFFF';
         uiCtx.lineWidth = 3;
         uiCtx.stroke();
+        uiCtx.restore();
 
-        // Spawn falling items
-        STATE.reactive.spawnTimer += 0.033;
-        if (STATE.reactive.spawnTimer > 1.8) {
-            STATE.reactive.items.push({
-                x: Math.random() * (uiCanvas.width - 80) + 40,
-                y: -20,
-                speed: (3.5 + Math.random() * 2.5) * STATE.reactive.speedFactor
-            });
+        // Screen-height-normalized, time-based drop speed (3.5 seconds from top to bar at 100% speed)
+        const fallDistancePx = Math.max(250, barTopY);
+        const travelTimeSec = 3.5 / cfg.speed;
+        const speedPxPerSec = fallDistancePx / travelTimeSec;
+
+        // Spawn Falling Objects
+        STATE.reactive.spawnTimer += dt;
+        const spawnInterval = cfg.cognitiveLoad ? 1.4 : 2.2;
+        const maxActive = cfg.cognitiveLoad ? 3 : 1;
+
+        if (STATE.reactive.spawnTimer >= spawnInterval && STATE.reactive.items.length < maxActive) {
             STATE.reactive.spawnTimer = 0;
+
+            // Only 1 Yellow target allowed on screen at a time
+            const hasYellow = STATE.reactive.items.some(it => it.type === 'yellow');
+            let itemType = 'yellow';
+
+            if (cfg.cognitiveLoad) {
+                if (hasYellow) {
+                    itemType = 'red';
+                } else {
+                    itemType = Math.random() < 0.55 ? 'yellow' : 'red';
+                }
+            }
+
+            if (itemType === 'yellow') {
+                STATE.totalOpportunities += 1;
+            }
+
+            STATE.reactive.items.push({
+                x: Math.random() * (uiCanvas.width - 100) + 50,
+                y: 60,
+                type: itemType
+            });
         }
 
-        // Render and process falling items
+        // Update & Render Falling Objects
         for (let i = STATE.reactive.items.length - 1; i >= 0; i--) {
-            let item = STATE.reactive.items[i];
-            item.y += item.speed;
+            const item = STATE.reactive.items[i];
+            item.y += speedPxPerSec * dt;
 
+            // Visual Cue in "ง่ายมาก" (Very Easy): 50% transparent yellow vertical drop-path guide line
+            if (cfg.visualCue && item.type === 'yellow') {
+                uiCtx.save();
+                uiCtx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+                uiCtx.lineWidth = 6;
+                uiCtx.setLineDash([12, 10]);
+                uiCtx.beginPath();
+                uiCtx.moveTo(item.x, item.y + 18);
+                uiCtx.lineTo(item.x, barTopY);
+                uiCtx.stroke();
+                uiCtx.restore();
+            }
+
+            // Draw Falling Sphere
+            uiCtx.save();
             uiCtx.beginPath();
             uiCtx.arc(item.x, item.y, 18, 0, 2 * Math.PI);
-            uiCtx.fillStyle = "#38BDF8";
+            uiCtx.fillStyle = item.type === 'yellow' ? '#FBBF24' : '#EF4444';
             uiCtx.fill();
-            uiCtx.strokeStyle = "#FFFFFF";
-            uiCtx.lineWidth = 2;
+            uiCtx.strokeStyle = '#FFFFFF';
+            uiCtx.lineWidth = 2.5;
             uiCtx.stroke();
+            uiCtx.restore();
 
-            // Collision detection with basket
-            if (item.y >= basketY && item.y <= basketY + 28 &&
-                item.x >= (basketX - basketWidth / 2) && item.x <= (basketX + basketWidth / 2)) {
-                STATE.score += 1;
-                triggerFeedback('success');
+            // Check Collision with Flat Horizontal Catcher Bar
+            const hitBar = (item.y + 18 >= barTopY) && (item.y - 18 <= barTopY + barHeight) &&
+                           (item.x >= barCenterX - barWidth / 2 - 10) && (item.x <= barCenterX + barWidth / 2 + 10);
+
+            if (hitBar) {
+                if (item.type === 'yellow') {
+                    STATE.score += 1;
+                    triggerFeedback('success');
+                } else {
+                    // Caught Red hazard in Very Hard mode -> deduct score & log error
+                    STATE.score -= 1;
+                    STATE.errors += 1;
+                    triggerFeedback('error');
+                }
                 STATE.reactive.items.splice(i, 1);
                 updateHUD();
-            } else if (item.y > uiCanvas.height) {
-                STATE.errors += 1;
-                triggerFeedback('error');
+            } else if (item.y > barTopY + barHeight + 45) {
+                // Object fell past the catcher bar
+                if (item.type === 'yellow') {
+                    STATE.errors += 1;
+                    triggerFeedback('error');
+                    updateHUD();
+                }
                 STATE.reactive.items.splice(i, 1);
-                updateHUD();
             }
         }
     }
